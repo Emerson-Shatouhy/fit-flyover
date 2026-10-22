@@ -1630,38 +1630,43 @@ body.exporting .stage { cursor: progress; }
     updateTrimNote();
     return parsed;
   }
+  /* seconds from the start of the file -> progress p (0..1) along the full course */
+  function trimOff() { const sp = rawSpan(); return sp.timed && fullTrack.meta.startTime != null ? (fullTrack.meta.startTime - sp.t0) / 1000 : 0; }
+  function timeToP(sec) {
+    const g = fullTrack.grid, M = fullTrack.M;
+    if (!g.t) return Math.min(1, Math.max(0, sec / rawSpan().secs));
+    const t = sec - trimOff();
+    if (t <= g.t[0]) return 0; if (t >= g.t[M - 1]) return 1;
+    let lo = 0, hi = M - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (g.t[mid] <= t) lo = mid; else hi = mid; }
+    return (lo + (t - g.t[lo]) / Math.max(1e-9, g.t[hi] - g.t[lo])) / (M - 1);
+  }
   /* where the two cut points fall on the full course, in time and distance */
   function trimInfo() {
-    const T = rawSpan().secs, a = S.trimStart, b = T - S.trimEnd, f = fullTrack, g = f.grid, M = f.M;
-    const dAt = (sec) => {
-      if (!g.t) return f.meta.totalDist * Math.min(1, Math.max(0, sec / T));
-      if (sec <= g.t[0]) return g.d[0]; if (sec >= g.t[M - 1]) return g.d[M - 1];
-      let lo = 0, hi = M - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (g.t[mid] <= sec) lo = mid; else hi = mid; }
-      return g.d[lo] + (g.d[hi] - g.d[lo]) * ((sec - g.t[lo]) / Math.max(1e-9, g.t[hi] - g.t[lo]));
-    };
-    return { a, b, T, da: dAt(a), db: dAt(b) };
+    const T = rawSpan().secs, a = S.trimStart, b = T - S.trimEnd;
+    return { a, b, T, da: C.sampleTrack(fullTrack, timeToP(a)).d, db: C.sampleTrack(fullTrack, timeToP(b)).d };
   }
   const fmtDist = (m) => C.fmtDistance(m, S.units) + ' ' + C.distUnit(S.units);
   function updateTrimNote() {
     if (!raw) return;
     const T = rawSpan().secs, trimmed = S.trimStart || S.trimEnd;
     if (fullTrack && trimmed) { const i = trimInfo(); $('#trimNote').textContent = 'Keeping ' + C.fmtDuration(i.a) + ' to ' + C.fmtDuration(i.b) + ' (' + fmtDist(i.da) + ' to ' + fmtDist(i.db) + ') of ' + C.fmtDuration(T); }
-    else $('#trimNote').textContent = 'Drag a slider to see the whole course and where the cut falls.';
+    else $('#trimNote').textContent = 'Drag a slider, or the START and END handles on the preview, to choose where it begins and ends.';
     $('#trimBox').hidden = false;
   }
 
-  /* Trim view: playback stops and the map shows the whole course, with the kept part lit and the cut parts faint. */
+  /* Trim view: playback stops and the map shows the whole course, with the kept part lit and the cut parts faint.
+     Dragging only moves the lit section and the flags (cheap); the real trimmed track is rebuilt a moment after you stop. */
   const lineFeat = (c) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: c } });
   const endsFeat = (c) => ({ type: 'FeatureCollection', features: [
     { type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: c[0] } },
     { type: 'Feature', properties: { kind: 'end' }, geometry: { type: 'Point', coordinates: c[c.length - 1] } } ] });
   function enterTrimView() {
     if (!S.track || !fullTrack || S.exporting || S.trimView) return;
-    S.trimView = true; setPlaying(false); applyTrimView();
+    S.trimView = true; setPlaying(false); view.style.touchAction = 'none'; applyTrimView();
   }
   function exitTrimView(play) {
     if (!S.trimView) return;
-    S.trimView = false;
+    S.trimView = false; view.style.touchAction = ''; view.style.cursor = '';
     if (map && S.track) {
       const c = S.track.line.coords;
       map.getSource('route-full').setData(lineFeat(c)); map.getSource('ends').setData(endsFeat(c));
@@ -1673,27 +1678,56 @@ body.exporting .stage { cursor: progress; }
     if (!map || !fullTrack || !S.track) { composite(); return; }
     const { W, H } = dims(), b = fullTrack.bounds, la = (fullTrack.lat0 * Math.PI) / 180;
     const wM = Math.max(60, (b.e - b.w) * 111320 * Math.cos(la)), hM = Math.max(60, (b.n - b.s) * 110574);
-    const padT = H * 0.16, padB = H * 0.2, mpp = Math.max(wM / (W * 0.78), hM / ((H - padT - padB) * 0.84));
+    const padT = H * 0.14, padB = H * 0.34, mpp = Math.max(wM / (W * 0.78), hM / ((H - padT - padB) * 0.84));
     map.jumpTo({ center: [(b.w + b.e) / 2, (b.s + b.n) / 2], zoom: Math.min(17, Math.log2((78271.517 * Math.cos(la)) / mpp)), bearing: 0, pitch: 0, padding: { top: padT, bottom: padB, left: 0, right: 0 } });
-    const kept = S.track.line.coords;
     if (styleUp()) { map.setLayoutProperty('prog', 'visibility', 'visible'); map.setLayoutProperty('prog-seg', 'visibility', 'none'); }
     map.getSource('route-full').setData(lineFeat(fullTrack.line.coords));
-    map.getSource('route-done').setData(lineFeat(kept));
     map.getSource('route-seg').setData(EMPTY_FC);
     map.getSource('head').setData(EMPTY_PT);
-    map.getSource('ends').setData(endsFeat(kept));
+    applyTrimLive();
     updateTransport();
   }
+  function trimPoints() {
+    const T = rawSpan().secs, pa = timeToP(S.trimStart), pb = Math.max(pa + 1e-4, timeToP(T - S.trimEnd));
+    return { pa, pb, A: C.sampleTrack(fullTrack, pa), B: C.sampleTrack(fullTrack, pb) };
+  }
+  function applyTrimLive() {
+    if (!S.trimView || !map || !fullTrack) return;
+    const { pa, pb, A, B } = trimPoints(), L = fullTrack.L;
+    map.getSource('route-done').setData(lineFeat(segCoords(fullTrack.line, pa * L, Math.max(pa * L + 1, pb * L))));
+    map.getSource('ends').setData(endsFeat([[A.lng, A.lat], [B.lng, B.lat]]));
+    composite();
+  }
+  let liveQueued = false;
+  function scheduleTrimLive() { if (liveQueued) return; liveQueued = true; requestAnimationFrame(() => { liveQueued = false; applyTrimLive(); }); }
+
+  /* the speed-over-time strip with the two draggable handles */
+  function stripGeom() {
+    const W = view.width, H = view.height, u = Math.min(W, H) / 1080, innerW = Math.min(W - 120 * u, 1500 * u);
+    const safe = S.safe && Math.abs(W / H - 9 / 16) < 0.02, bot = H - (safe ? H * 0.17 : 54 * u), bottom = bot - 124 * u;
+    return { u, x0: (W - innerW) / 2, w: innerW, bot, bottom, top: bottom - 120 * u };
+  }
+  let stripCache = { ft: null, n: 0 };
+  function stripSeries(n) {
+    if (stripCache.ft === fullTrack && stripCache.n === n) return stripCache;
+    const spd = fullTrack.grid.spd; if (!spd) { stripCache = { ft: fullTrack, n, arr: null }; return stripCache; }
+    const T = rawSpan().secs, M = fullTrack.M, raw0 = new Float64Array(n), arr = new Float64Array(n);
+    for (let i = 0; i < n; i++) { const c = timeToP((T * i) / (n - 1)) * (M - 1), k = Math.min(M - 2, Math.floor(c)); raw0[i] = spd[k] + (spd[k + 1] - spd[k]) * (c - k); }
+    for (let i = 0; i < n; i++) { let a = 0, m = 0; for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { a += raw0[j]; m++; } arr[i] = a / m; }
+    const sorted = Float64Array.from(arr).sort();
+    stripCache = { ft: fullTrack, n, arr, max: Math.max(1, sorted[Math.floor(n * 0.98)] * 1.08) };
+    return stripCache;
+  }
   function drawTrimOverlay(ctx, W, H) {
-    const u = Math.min(W, H) / 1080, t = S.track, info = trimInfo(), innerW = Math.min(W - 120 * u, 1500 * u), x0 = (W - innerW) / 2;
-    const safe = S.safe && Math.abs(W / H - 9 / 16) < 0.02, top = safe ? H * 0.085 : 46 * u, bot = H - (safe ? H * 0.17 : 54 * u);
+    const t = S.track, info = trimInfo(), sg = stripGeom(), u = sg.u, x0 = sg.x0, innerW = sg.w, T = info.T;
+    const safe = S.safe && Math.abs(W / H - 9 / 16) < 0.02, top = safe ? H * 0.085 : 46 * u, bot = sg.bot;
     ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     let g = ctx.createLinearGradient(0, 0, 0, H * 0.2); g.addColorStop(0, 'rgba(0,0,0,0.7)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.2);
-    g = ctx.createLinearGradient(0, H * 0.74, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.8)'); ctx.fillStyle = g; ctx.fillRect(0, H * 0.74, W, H * 0.26);
-    // flags at the two cut points
-    const c = t.line.coords, pts = [['START', c[0], '#35D07F', info.a, -1], ['END', c[c.length - 1], '#FF4D4D', info.b, 1]];
-    for (const [label, ll, col, sec, side] of pts) {
-      let pt; try { pt = map.project(ll); } catch (e) { continue; }
+    g = ctx.createLinearGradient(0, sg.top - 120 * u, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.35, 'rgba(0,0,0,0.78)'); g.addColorStop(1, 'rgba(0,0,0,0.88)'); ctx.fillStyle = g; ctx.fillRect(0, sg.top - 120 * u, W, H - sg.top + 120 * u);
+    // flags on the map at the two cut points
+    const { A, B } = trimPoints();
+    for (const [label, pos, col, sec, side] of [['START', A, '#35D07F', info.a, -1], ['END', B, '#FF4D4D', info.b, 1]]) {
+      let pt; try { pt = map.project([pos.lng, pos.lat]); } catch (e) { continue; }
       if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) continue;
       ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10 * u;
       const txt = label + '  ' + C.fmtDuration(sec); ctx.font = '700 ' + 26 * u + 'px ' + FONT_NUM; spacing(ctx, '0.08em');
@@ -1705,19 +1739,67 @@ body.exporting .stage { cursor: progress; }
       ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.fillText(txt, bx + 18 * u, by + bh * 0.68); spacing(ctx, '0px');
       ctx.beginPath(); ctx.arc(pt.x, pt.y, 12 * u, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 4 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
     }
-    // header and totals
+    // header
     ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12 * u; ctx.fillStyle = '#fff';
     ctx.font = '700 ' + 70 * u + 'px ' + FONT_NUM; spacing(ctx, '0.04em'); ctx.fillText('TRIM', x0, top + 56 * u);
-    ctx.font = '600 ' + 26 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = S.color; ctx.fillText('COURSE PREVIEW · PRESS PLAY TO WATCH THE CUT', x0, top + 100 * u); spacing(ctx, '0px');
+    ctx.font = '600 ' + 24 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillStyle = S.color; ctx.fillText('DRAG THE HANDLES · PLAY TO WATCH THE CUT', x0, top + 98 * u); spacing(ctx, '0px');
+    // speed over time, with the cut parts dimmed
+    ctx.shadowBlur = 0;
+    const n = Math.max(40, Math.round(innerW)), ser = stripSeries(n), h = sg.bottom - sg.top;
+    const xa = x0 + (innerW * info.a) / T, xb = x0 + (innerW * info.b) / T;
+    if (ser.arr) {
+      const path = new Path2D(); path.moveTo(x0, sg.bottom);
+      for (let i = 0; i < n; i++) path.lineTo(x0 + (innerW * i) / (n - 1), sg.bottom - Math.min(1, ser.arr[i] / ser.max) * h);
+      path.lineTo(x0 + innerW, sg.bottom); path.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill(path);
+      ctx.save(); ctx.beginPath(); ctx.rect(xa, sg.top - 20 * u, Math.max(0, xb - xa), h + 40 * u); ctx.clip(); ctx.globalAlpha = 0.92; ctx.fillStyle = S.color; ctx.fill(path); ctx.restore();
+    } else { ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(x0, sg.bottom - 6 * u, innerW, 6 * u); ctx.fillStyle = S.color; ctx.fillRect(xa, sg.bottom - 6 * u, Math.max(0, xb - xa), 6 * u); }
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '600 ' + 20 * u + 'px ' + FONT_NUM; spacing(ctx, '0.1em');
+    ctx.fillText(ser.arr ? 'SPEED OVER TIME' : 'TIMELINE', x0, sg.bottom + 26 * u); ctx.textAlign = 'right'; ctx.fillText(C.fmtDuration(T), x0 + innerW, sg.bottom + 26 * u); ctx.textAlign = 'left'; spacing(ctx, '0px');
+    for (const [x, col, label, sec, side] of [[xa, '#35D07F', 'START', info.a, -1], [xb, '#FF4D4D', 'END', info.b, 1]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 4 * u; ctx.beginPath(); ctx.moveTo(x, sg.top - 12 * u); ctx.lineTo(x, sg.bottom + 6 * u); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, sg.top - 12 * u, 15 * u, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 4 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = '700 ' + 28 * u + 'px ' + FONT_NUM; ctx.textAlign = side < 0 ? 'right' : 'left';
+      ctx.fillText(C.fmtDuration(sec), x + side * 24 * u, sg.top - 4 * u); ctx.textAlign = 'left';
+    }
+    // totals
     const cols = [['START', C.fmtDuration(info.a), fmtDist(info.da)], ['END', C.fmtDuration(info.b), fmtDist(info.db)], ['KEEPING', C.fmtDuration(Math.max(0, info.b - info.a)), fmtDist(Math.max(0, info.db - info.da))]];
     const step = innerW / 3;
     cols.forEach(([lab, v1, v2], i) => {
       const x = x0 + i * step;
-      ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.font = '600 ' + 24 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillText(lab, x, bot - 64 * u); spacing(ctx, '0px');
-      ctx.fillStyle = '#fff'; ctx.font = '700 ' + 52 * u + 'px ' + FONT_NUM; ctx.fillText(v1, x, bot);
-      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '500 ' + 24 * u + 'px ' + FONT_NUM; ctx.fillText(v2, x, bot + 28 * u);
+      ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.font = '600 ' + 22 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillText(lab, x, bot - 54 * u); spacing(ctx, '0px');
+      ctx.fillStyle = '#fff'; ctx.font = '700 ' + 48 * u + 'px ' + FONT_NUM; ctx.fillText(v1, x, bot);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '500 ' + 22 * u + 'px ' + FONT_NUM; ctx.fillText(v2, x, bot + 26 * u);
     });
     ctx.restore();
+  }
+
+  /* dragging the handles on the preview */
+  function bindTrimDrag() {
+    let grab = null;
+    const toCanvas = (e) => { const r = view.getBoundingClientRect(), k = r.width || view.width; return [((e.clientX - r.left) * view.width) / k, ((e.clientY - r.top) * view.height) / (r.height || view.height)]; };
+    const overStrip = (cx, cy) => { const sg = stripGeom(), u = sg.u; return cy > sg.top - 60 * u && cy < sg.bottom + 50 * u && cx > sg.x0 - 36 * u && cx < sg.x0 + sg.w + 36 * u; };
+    const move = (cx) => {
+      const sg = stripGeom(), T = rawSpan().secs, t = Math.round(Math.min(1, Math.max(0, (cx - sg.x0) / sg.w)) * T), gap = Math.ceil(T * 0.05), cap = Math.floor(T * 0.9);
+      if (grab === 'a') S.trimStart = Math.max(0, Math.min(t, T - S.trimEnd - gap, cap));
+      else S.trimEnd = Math.max(0, Math.min(T - t, T - S.trimStart - gap, cap));
+      $('#trimStart')._sync(); $('#trimEnd')._sync(); updateTrimNote(); scheduleTrimLive(); queueRetrim();
+    };
+    view.addEventListener('pointerdown', (e) => {
+      if (!S.trimView) return;
+      const [cx, cy] = toCanvas(e); if (!overStrip(cx, cy)) return;
+      const sg = stripGeom(), T = rawSpan().secs, ax = sg.x0 + (sg.w * S.trimStart) / T, bx = sg.x0 + (sg.w * (T - S.trimEnd)) / T;
+      grab = Math.abs(cx - ax) <= Math.abs(cx - bx) ? 'a' : 'b';
+      try { view.setPointerCapture(e.pointerId); } catch (err) { /* optional */ }
+      e.preventDefault(); move(cx);
+    });
+    view.addEventListener('pointermove', (e) => {
+      if (!S.trimView) return;
+      const [cx, cy] = toCanvas(e);
+      if (grab) move(cx); else view.style.cursor = overStrip(cx, cy) ? 'ew-resize' : '';
+    });
+    const end = () => { grab = null; };
+    view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
   }
 
   function onTrim(moved) {
@@ -1728,13 +1810,16 @@ body.exporting .stage { cursor: progress; }
       if (moved === 'trimStart') S.trimEnd = Math.max(0, room - S.trimStart); else S.trimStart = Math.max(0, room - S.trimEnd);
       $('#trimStart')._sync(); $('#trimEnd')._sync();
     }
-    updateTrimNote();
+    updateTrimNote(); scheduleTrimLive(); queueRetrim();
+  }
+  /* the real trimmed track is rebuilt once the handles stop moving */
+  function queueRetrim() {
     clearTimeout(trimTimer);
     trimTimer = setTimeout(async () => {
       if (!raw || S.exporting) return;
       try { await setTrack(C.buildTrack(trimmedParsed()), { retrim: true }); setStatus(''); }
       catch (e) { setStatus('Cannot trim that much: ' + (e.message || e), 'warn'); }
-    }, 150);
+    }, 250);
   }
 
   async function setTrack(track, opts) {
@@ -1921,6 +2006,7 @@ body.exporting .stage { cursor: progress; }
     });
     for (const id of ['trimStart', 'trimEnd']) $('#' + id).addEventListener('pointerdown', enterTrimView);
     $('#trimViewBtn').addEventListener('click', enterTrimView);
+    bindTrimDrag();
     $('#trimPreviewBtn').addEventListener('click', () => { if (S.trimView) { exitTrimView(false); applyFrame(0); setPlaying(true); } });
     $('#trimResetBtn').addEventListener('click', () => { S.trimStart = 0; S.trimEnd = 0; $('#trimStart')._sync(); $('#trimEnd')._sync(); onTrim(); });
     const scrub = $('#scrub');
