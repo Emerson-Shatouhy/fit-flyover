@@ -169,6 +169,7 @@ body.exporting .stage { cursor: progress; }
         <div class="field"><div class="lab"><label for="trimStart">Trim start</label><output id="trimStartOut">0 s</output></div><input type="range" id="trimStart" min="0" max="100" step="1" value="0"></div>
         <div class="field"><div class="lab"><label for="trimEnd">Trim end</label><output id="trimEndOut">0 s</output></div><input type="range" id="trimEnd" min="0" max="100" step="1" value="0"></div>
         <p class="note" id="trimNote"></p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 16px"><button class="link" id="trimViewBtn" type="button">Show full course</button><button class="link" id="trimPreviewBtn" type="button">Preview trimmed</button><button class="link" id="trimResetBtn" type="button">Reset trim</button></div>
       </div>
     </div>
 
@@ -958,7 +959,7 @@ body.exporting .stage { cursor: progress; }
     for (const k of SAVED_KEYS) if (k in saved && typeof saved[k] === typeof S[k]) S[k] = k === 'stats' ? Object.assign(S.stats, saved.stats) : saved[k];
     if (saved.profile === false && !saved.graph) S.graph = 'none';
   } catch (e) { /* storage unavailable */ }
-  S.track = null; S.tau = 0; S.playing = false; S.exporting = false;
+  S.trimView = false; S.track = null; S.tau = 0; S.playing = false; S.exporting = false;
 
   const save = () => { try { const o = {}; for (const k of SAVED_KEYS) o[k] = S[k]; localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } };
 
@@ -1093,6 +1094,7 @@ body.exporting .stage { cursor: progress; }
 
   function applyFrame(tau) {
     S.tau = Math.min(1, Math.max(0, tau));
+    if (S.trimView && S.track && map) { applyTrimView(); return; }
     if (!S.track || !plan || !map) { composite(); return; }
     const cam = C.cameraAt(plan, S.tau);
     const head = C.sampleTrack(S.track, cam.p);
@@ -1542,8 +1544,8 @@ body.exporting .stage { cursor: progress; }
     const W = view.width, H = view.height;
     vctx.fillStyle = '#0a0d10'; vctx.fillRect(0, 0, W, H);
     if (map) { const mc = map.getCanvas(); if (mc && mc.width > 0 && mc.height > 0) vctx.drawImage(mc, 0, 0, W, H); }
-    drawMarkers(vctx, W, H);
-    drawHud(vctx, W, H);
+    if (S.trimView && S.track) drawTrimOverlay(vctx, W, H);
+    else { drawMarkers(vctx, W, H); drawHud(vctx, W, H); }
     if (map) $('#tilesNote').hidden = !S.track || S.exporting || map.loaded();
   }
 
@@ -1605,7 +1607,7 @@ body.exporting .stage { cursor: progress; }
   }
 
   /* ------------------------------ trim ------------------------------ */
-  let raw = null, trimTimer = 0;
+  let raw = null, fullTrack = null, trimTimer = 0;
   const hasT = (p) => p.t !== null && p.t !== undefined && isFinite(p.t);
   function rawSpan() {
     // seconds of timestamped activity; without timestamps assume roughly one point per second
@@ -1622,19 +1624,104 @@ body.exporting .stage { cursor: progress; }
     return Object.assign({}, raw, { points: pts.slice(S.trimStart, Math.max(S.trimStart + 2, pts.length - S.trimEnd)) });
   }
   function adoptRaw(parsed) {
-    raw = parsed; S.trimStart = 0; S.trimEnd = 0;
+    raw = parsed; fullTrack = null; S.trimStart = 0; S.trimEnd = 0;
     const max = Math.max(1, Math.floor(rawSpan().secs * 0.9));
     for (const id of ['trimStart', 'trimEnd']) { $('#' + id).max = max; $('#' + id).step = max > 1800 ? 5 : 1; $('#' + id)._sync(); }
     updateTrimNote();
     return parsed;
   }
+  /* where the two cut points fall on the full course, in time and distance */
+  function trimInfo() {
+    const T = rawSpan().secs, a = S.trimStart, b = T - S.trimEnd, f = fullTrack, g = f.grid, M = f.M;
+    const dAt = (sec) => {
+      if (!g.t) return f.meta.totalDist * Math.min(1, Math.max(0, sec / T));
+      if (sec <= g.t[0]) return g.d[0]; if (sec >= g.t[M - 1]) return g.d[M - 1];
+      let lo = 0, hi = M - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (g.t[mid] <= sec) lo = mid; else hi = mid; }
+      return g.d[lo] + (g.d[hi] - g.d[lo]) * ((sec - g.t[lo]) / Math.max(1e-9, g.t[hi] - g.t[lo]));
+    };
+    return { a, b, T, da: dAt(a), db: dAt(b) };
+  }
+  const fmtDist = (m) => C.fmtDistance(m, S.units) + ' ' + C.distUnit(S.units);
   function updateTrimNote() {
     if (!raw) return;
     const T = rawSpan().secs, trimmed = S.trimStart || S.trimEnd;
-    $('#trimNote').textContent = trimmed ? 'Showing ' + C.fmtDuration(S.trimStart) + ' to ' + C.fmtDuration(T - S.trimEnd) + ' of ' + C.fmtDuration(T) : 'Drag to cut seconds off the start or end of the route.';
+    if (fullTrack && trimmed) { const i = trimInfo(); $('#trimNote').textContent = 'Keeping ' + C.fmtDuration(i.a) + ' to ' + C.fmtDuration(i.b) + ' (' + fmtDist(i.da) + ' to ' + fmtDist(i.db) + ') of ' + C.fmtDuration(T); }
+    else $('#trimNote').textContent = 'Drag a slider to see the whole course and where the cut falls.';
     $('#trimBox').hidden = false;
   }
+
+  /* Trim view: playback stops and the map shows the whole course, with the kept part lit and the cut parts faint. */
+  const lineFeat = (c) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: c } });
+  const endsFeat = (c) => ({ type: 'FeatureCollection', features: [
+    { type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: c[0] } },
+    { type: 'Feature', properties: { kind: 'end' }, geometry: { type: 'Point', coordinates: c[c.length - 1] } } ] });
+  function enterTrimView() {
+    if (!S.track || !fullTrack || S.exporting || S.trimView) return;
+    S.trimView = true; setPlaying(false); applyTrimView();
+  }
+  function exitTrimView(play) {
+    if (!S.trimView) return;
+    S.trimView = false;
+    if (map && S.track) {
+      const c = S.track.line.coords;
+      map.getSource('route-full').setData(lineFeat(c)); map.getSource('ends').setData(endsFeat(c));
+      applyRouteColor(); applyFrame(S.tau);
+    }
+    if (play) setPlaying(true);
+  }
+  function applyTrimView() {
+    if (!map || !fullTrack || !S.track) { composite(); return; }
+    const { W, H } = dims(), b = fullTrack.bounds, la = (fullTrack.lat0 * Math.PI) / 180;
+    const wM = Math.max(60, (b.e - b.w) * 111320 * Math.cos(la)), hM = Math.max(60, (b.n - b.s) * 110574);
+    const padT = H * 0.16, padB = H * 0.2, mpp = Math.max(wM / (W * 0.78), hM / ((H - padT - padB) * 0.84));
+    map.jumpTo({ center: [(b.w + b.e) / 2, (b.s + b.n) / 2], zoom: Math.min(17, Math.log2((78271.517 * Math.cos(la)) / mpp)), bearing: 0, pitch: 0, padding: { top: padT, bottom: padB, left: 0, right: 0 } });
+    const kept = S.track.line.coords;
+    if (styleUp()) { map.setLayoutProperty('prog', 'visibility', 'visible'); map.setLayoutProperty('prog-seg', 'visibility', 'none'); }
+    map.getSource('route-full').setData(lineFeat(fullTrack.line.coords));
+    map.getSource('route-done').setData(lineFeat(kept));
+    map.getSource('route-seg').setData(EMPTY_FC);
+    map.getSource('head').setData(EMPTY_PT);
+    map.getSource('ends').setData(endsFeat(kept));
+    updateTransport();
+  }
+  function drawTrimOverlay(ctx, W, H) {
+    const u = Math.min(W, H) / 1080, t = S.track, info = trimInfo(), innerW = Math.min(W - 120 * u, 1500 * u), x0 = (W - innerW) / 2;
+    const safe = S.safe && Math.abs(W / H - 9 / 16) < 0.02, top = safe ? H * 0.085 : 46 * u, bot = H - (safe ? H * 0.17 : 54 * u);
+    ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    let g = ctx.createLinearGradient(0, 0, 0, H * 0.2); g.addColorStop(0, 'rgba(0,0,0,0.7)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.2);
+    g = ctx.createLinearGradient(0, H * 0.74, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.8)'); ctx.fillStyle = g; ctx.fillRect(0, H * 0.74, W, H * 0.26);
+    // flags at the two cut points
+    const c = t.line.coords, pts = [['START', c[0], '#35D07F', info.a, -1], ['END', c[c.length - 1], '#FF4D4D', info.b, 1]];
+    for (const [label, ll, col, sec, side] of pts) {
+      let pt; try { pt = map.project(ll); } catch (e) { continue; }
+      if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) continue;
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10 * u;
+      const txt = label + '  ' + C.fmtDuration(sec); ctx.font = '700 ' + 26 * u + 'px ' + FONT_NUM; spacing(ctx, '0.08em');
+      const tw = ctx.measureText(txt).width, bw = tw + 28 * u, bh = 44 * u;
+      let bx = side < 0 ? pt.x - bw - 18 * u : pt.x + 18 * u; bx = Math.max(8 * u, Math.min(W - bw - 8 * u, bx));
+      const by = Math.max(8 * u, Math.min(H - bh - 8 * u, pt.y - bh - 14 * u));
+      ctx.fillStyle = 'rgba(8,12,16,0.82)'; rr(ctx, bx, by, bw, bh, 10 * u); ctx.fill();
+      ctx.fillStyle = col; rr(ctx, bx, by, 6 * u, bh, 3 * u); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.fillText(txt, bx + 18 * u, by + bh * 0.68); spacing(ctx, '0px');
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 12 * u, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 4 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
+    }
+    // header and totals
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12 * u; ctx.fillStyle = '#fff';
+    ctx.font = '700 ' + 70 * u + 'px ' + FONT_NUM; spacing(ctx, '0.04em'); ctx.fillText('TRIM', x0, top + 56 * u);
+    ctx.font = '600 ' + 26 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = S.color; ctx.fillText('COURSE PREVIEW · PRESS PLAY TO WATCH THE CUT', x0, top + 100 * u); spacing(ctx, '0px');
+    const cols = [['START', C.fmtDuration(info.a), fmtDist(info.da)], ['END', C.fmtDuration(info.b), fmtDist(info.db)], ['KEEPING', C.fmtDuration(Math.max(0, info.b - info.a)), fmtDist(Math.max(0, info.db - info.da))]];
+    const step = innerW / 3;
+    cols.forEach(([lab, v1, v2], i) => {
+      const x = x0 + i * step;
+      ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.font = '600 ' + 24 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillText(lab, x, bot - 64 * u); spacing(ctx, '0px');
+      ctx.fillStyle = '#fff'; ctx.font = '700 ' + 52 * u + 'px ' + FONT_NUM; ctx.fillText(v1, x, bot);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '500 ' + 24 * u + 'px ' + FONT_NUM; ctx.fillText(v2, x, bot + 28 * u);
+    });
+    ctx.restore();
+  }
+
   function onTrim(moved) {
+    enterTrimView();
     // the two trims share the activity: keep at least 5% of it, giving way on the slider that was not moved
     const T = rawSpan().secs, room = Math.floor(T * 0.95);
     if (S.trimStart + S.trimEnd > room) {
@@ -1654,6 +1741,7 @@ body.exporting .stage { cursor: progress; }
     opts = opts || {};
     await mapReady;
     S.track = track; trackId++;
+    if (!opts.retrim) { fullTrack = track; S.trimView = false; }
     if (!opts.retrim) { S.duration = C.suggestDuration(track.L); S.title = track.meta.name || ''; $('#title').value = S.title; }
     $('#drop').hidden = true; view.hidden = false;
     for (const id of ['playBtn', 'scrub', 'exportBtn']) $('#' + id).disabled = false;
@@ -1671,7 +1759,8 @@ body.exporting .stage { cursor: progress; }
     map.getSource('ends').setData({ type: 'FeatureCollection', features: [
       { type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: c[0] } },
       { type: 'Feature', properties: { kind: 'end' }, geometry: { type: 'Point', coordinates: c[c.length - 1] } } ] });
-    fitView(); replan(); applyFrame(0); setPlaying(true);
+    if (S.trimView) { replan(); applyTrimView(); }
+    else { fitView(); replan(); applyFrame(0); setPlaying(true); }
   }
 
   function updateActivityPanel() {
@@ -1824,9 +1913,18 @@ body.exporting .stage { cursor: progress; }
       e.preventDefault(); drop.classList.remove('over');
       const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f);
     });
-    $('#playBtn').addEventListener('click', () => { if (S.exporting) return; if (!S.playing && S.tau >= 1) applyFrame(0); setPlaying(!S.playing); });
+    $('#playBtn').addEventListener('click', () => {
+      if (S.exporting) return;
+      if (S.trimView) { exitTrimView(false); applyFrame(0); setPlaying(true); return; } // preview the trimmed flyover from the start
+      if (!S.playing && S.tau >= 1) applyFrame(0);
+      setPlaying(!S.playing);
+    });
+    for (const id of ['trimStart', 'trimEnd']) $('#' + id).addEventListener('pointerdown', enterTrimView);
+    $('#trimViewBtn').addEventListener('click', enterTrimView);
+    $('#trimPreviewBtn').addEventListener('click', () => { if (S.trimView) { exitTrimView(false); applyFrame(0); setPlaying(true); } });
+    $('#trimResetBtn').addEventListener('click', () => { S.trimStart = 0; S.trimEnd = 0; $('#trimStart')._sync(); $('#trimEnd')._sync(); onTrim(); });
     const scrub = $('#scrub');
-    scrub.addEventListener('input', () => applyFrame(scrub.value / 1000));
+    scrub.addEventListener('input', () => { if (S.trimView) exitTrimView(false); applyFrame(scrub.value / 1000); });
     scrub.addEventListener('pointerdown', () => { dragging = true; });
     window.addEventListener('pointerup', () => { dragging = false; });
     window.addEventListener('keydown', (e) => {
@@ -1856,6 +1954,7 @@ body.exporting .stage { cursor: progress; }
 
   async function exportVideo() {
     if (!S.track || S.exporting) return;
+    exitTrimView(false);
     S.exporting = true; exportCancel = false; setPlaying(false);
     document.body.classList.add('exporting');
     $$('[data-lock]').forEach((e) => { e.inert = true; });
