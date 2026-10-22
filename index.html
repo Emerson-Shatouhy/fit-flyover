@@ -1579,7 +1579,7 @@ body.exporting .stage { cursor: progress; }
   }
   function adoptRaw(parsed) {
     raw = parsed; S.trimStart = 0; S.trimEnd = 0;
-    const max = Math.max(1, Math.floor(rawSpan().secs * 0.45));
+    const max = Math.max(1, Math.floor(rawSpan().secs * 0.9));
     for (const id of ['trimStart', 'trimEnd']) { $('#' + id).max = max; $('#' + id).step = max > 1800 ? 5 : 1; $('#' + id)._sync(); }
     updateTrimNote();
     return parsed;
@@ -1590,7 +1590,13 @@ body.exporting .stage { cursor: progress; }
     $('#trimNote').textContent = trimmed ? 'Showing ' + C.fmtDuration(S.trimStart) + ' to ' + C.fmtDuration(T - S.trimEnd) + ' of ' + C.fmtDuration(T) : 'Drag to cut seconds off the start or end of the route.';
     $('#trimBox').hidden = false;
   }
-  function onTrim() {
+  function onTrim(moved) {
+    // the two trims share the activity: keep at least 5% of it, giving way on the slider that was not moved
+    const T = rawSpan().secs, room = Math.floor(T * 0.95);
+    if (S.trimStart + S.trimEnd > room) {
+      if (moved === 'trimStart') S.trimEnd = Math.max(0, room - S.trimStart); else S.trimStart = Math.max(0, room - S.trimEnd);
+      $('#trimStart')._sync(); $('#trimEnd')._sync();
+    }
     updateTrimNote();
     clearTimeout(trimTimer);
     trimTimer = setTimeout(async () => {
@@ -1673,8 +1679,8 @@ body.exporting .stage { cursor: progress; }
     sw.appendChild(custom);
     $('#customColor').addEventListener('input', (e) => onColor(e.target.value.toUpperCase()));
 
-    bindRange('trimStart', 'trimStart', (v) => v + ' s', onTrim);
-    bindRange('trimEnd', 'trimEnd', (v) => v + ' s', onTrim);
+    bindRange('trimStart', 'trimStart', (v) => v + ' s', () => onTrim('trimStart'));
+    bindRange('trimEnd', 'trimEnd', (v) => v + ' s', () => onTrim('trimEnd'));
     bindRange('duration', 'duration', (v) => v + ' s', () => { replan(); refresh(); updateAutoLen(); });
     bindRange('pitch', 'pitch', (v) => v + '°', () => { replan(); refresh(); });
     bindRange('zoom', 'zoom', (v) => (v > 0 ? '+' : '') + v.toFixed(1), () => { replan(); refresh(); });
