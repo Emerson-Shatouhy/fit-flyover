@@ -198,6 +198,11 @@ body.exporting .stage { cursor: progress; }
       <h2>Overlay</h2>
       <div class="field"><div class="lab"><label for="title">Title</label></div><input type="text" id="title" maxlength="60" placeholder="Morning run" autocomplete="off"></div>
       <div class="field"><div class="lab">Units</div><div class="seg" data-seg="units" role="radiogroup" aria-label="Units"></div></div>
+      <div class="grid2">
+        <div class="field"><div class="lab"><label for="sport">Sport</label></div><select id="sport"></select></div>
+        <div class="field"><div class="lab"><label for="markerEvery">Marker every</label></div>
+          <select id="markerEvery"><option value="auto">Auto</option><option value="100">100 m</option><option value="250">250 m</option><option value="500">500 m</option><option value="1000">1 km</option><option value="1609.344">1 mile</option><option value="5000">5 km</option></select></div>
+      </div>
       <div class="field"><div class="lab">Graph</div><div class="seg" data-seg="graph" role="radiogroup" aria-label="Graph"></div></div>
       <div class="checks">
         <label class="chk"><input type="checkbox" data-stat="dist"><span>Distance</span></label>
@@ -271,7 +276,7 @@ body.exporting .stage { cursor: progress; }
     }
   }
 
-  const FIT_SPORTS = { 1: 'running', 2: 'cycling', 5: 'swimming', 11: 'walking', 17: 'hiking' };
+  const FIT_SPORTS = { 1: 'running', 2: 'cycling', 5: 'swimming', 11: 'walking', 15: 'rowing', 17: 'hiking', 19: 'paddling', 41: 'paddling', 88: 'paddling' };
 
   function parseFit(buf) {
     if (buf.byteLength < 14) throw new Error('That file is too small to be a FIT file.');
@@ -376,6 +381,8 @@ body.exporting .stage { cursor: progress; }
     if (/run|jog/.test(s)) return 'running';
     if (/bik|cycl|ride/.test(s)) return 'cycling';
     if (/swim/.test(s)) return 'swimming';
+    if (/\brow(ing|er)?\b|\berg\b/.test(s)) return 'rowing';
+    if (/paddl|kayak|cano/.test(s)) return 'paddling';
     if (/hik/.test(s)) return 'hiking';
     if (/walk/.test(s)) return 'walking';
     return 'other';
@@ -938,12 +945,12 @@ body.exporting .stage { cursor: progress; }
     graph: [['none', 'Off'], ['ele', 'Elev'], ['hr', 'HR'], ['pwr', 'Power']],
   };
   const STORE_KEY = 'route-flyover-settings-v1';
-  const SAVED_KEYS = ['basemap', 'color', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'stats'];
+  const SAVED_KEYS = ['basemap', 'color', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'stats'];
 
   /* ------------------------------ state ------------------------------ */
   const S = {
     basemap: 'sat', color: '#FF5A1F', camera: 'chase', aspect: '9:16', res: 720, duration: 30, pitch: 62, zoom: 0,
-    terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', graph: 'ele', safe: true, credit: true, loop: true,
+    terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', graph: 'ele', safe: true, credit: true, loop: true,
     stats: { dist: true, time: true, pace: true, gain: true, hr: true, power: false },
   };
   try {
@@ -1112,20 +1119,37 @@ body.exporting .stage { cursor: progress; }
   }
 
   /* ------------------------------ overlay ------------------------------ */
-  const usePace = () => {
-    const m = S.track.meta;
-    if (m.sport === 'running' || m.sport === 'walking' || m.sport === 'hiking') return true;
-    if (m.sport === 'cycling') return false;
-    return !(m.avgSpeed > 4.2);
-  };
+  /* ------------------------------ sport and pace ------------------------------ */
+  const SPORTS = [['auto', 'Auto'], ['running', 'Run'], ['cycling', 'Ride'], ['rowing', 'Row'], ['paddling', 'Paddle'], ['swimming', 'Swim'], ['walking', 'Walk'], ['hiking', 'Hike'], ['other', 'Other']];
+  const SPORT_NAME = Object.fromEntries(SPORTS);
+  const effSport = () => (S.sport !== 'auto' ? S.sport : (S.track && S.track.meta.sport) || 'other');
+  /* how pace is written: per mile or km on foot, per 500 m rowing and paddling, per 100 m swimming, speed for rides */
+  function paceSpec() {
+    const sp = effSport(), u = S.units;
+    if (sp === 'rowing' || sp === 'paddling') return { pace: true, base: 500, unit: '/500m', label: 'Split', tenths: true };
+    if (sp === 'swimming') return { pace: true, base: 100, unit: '/100m', label: 'Pace' };
+    if (sp === 'cycling') return { pace: false };
+    const foot = sp === 'running' || sp === 'walking' || sp === 'hiking' || !(S.track && S.track.meta.avgSpeed > 4.2);
+    return foot ? { pace: true, base: u === 'mi' ? 1609.344 : 1000, unit: C.paceUnit(u), label: 'Pace' } : { pace: false };
+  }
+  function fmtPaceSpec(ps, mps) {
+    if (!(mps > 0.2)) return '–';
+    const sec = ps.base / mps; if (sec > 5999) return '–';
+    if (ps.tenths) { const t = Math.round(sec * 10) / 10, m = Math.floor(t / 60); return m + ':' + (t - m * 60).toFixed(1).padStart(4, '0'); }
+    const r = Math.round(sec); return Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0');
+  }
+  function paceOrSpeed(mps) {
+    const ps = paceSpec();
+    return ps.pace ? { value: fmtPaceSpec(ps, mps), unit: ps.unit, label: ps.label } : { value: C.fmtSpeed(mps, S.units), unit: C.speedUnit(S.units), label: 'Speed' };
+  }
 
   function statItems(head) {
     const t = S.track, u = S.units, m = t.meta, it = [];
     if (S.stats.dist) it.push({ k: 'dist', label: 'Distance', value: C.fmtDistance(head.d, u), unit: C.distUnit(u) });
     if (S.stats.time && m.hasTime) it.push({ k: 'time', label: 'Time', value: C.fmtDuration(head.t), unit: '' });
     if (S.stats.pace && head.spd !== null) {
-      if (usePace()) it.push({ k: 'pace', label: 'Pace', value: C.fmtPace(head.spd, u), unit: C.paceUnit(u) });
-      else it.push({ k: 'speed', label: 'Speed', value: C.fmtSpeed(head.spd, u), unit: C.speedUnit(u) });
+      const po = paceOrSpeed(head.spd);
+      it.push({ k: po.label.toLowerCase(), label: po.label, value: po.value, unit: po.unit });
     }
     if (S.stats.gain && m.hasEle) it.push({ k: 'gain', label: 'Elev gain', value: C.fmtElev(head.gain, u), unit: C.elevUnit(u) });
     if (S.stats.hr && m.hasHr) it.push({ k: 'hr', label: 'Heart rate', value: String(Math.round(head.hr)), unit: 'bpm' });
@@ -1230,7 +1254,7 @@ body.exporting .stage { cursor: progress; }
     const f = {
       hr: [(v) => String(Math.round(v)), ' bpm', 'HEART RATE'], pwr: [(v) => String(Math.round(v)), ' W', 'POWER'],
       ele: [(v) => C.fmtElev(v, u), ' ' + C.elevUnit(u), 'ELEVATION'],
-      spd: usePace() ? [(v) => C.fmtPace(v, u), ' ' + C.paceUnit(u), 'PACE'] : [(v) => C.fmtSpeed(v, u), ' ' + C.speedUnit(u), 'SPEED'],
+      spd: (() => { const ps = paceSpec(); return ps.pace ? [(v) => fmtPaceSpec(ps, v), ' ' + ps.unit, ps.label.toUpperCase()] : [(v) => C.fmtSpeed(v, u), ' ' + C.speedUnit(u), 'SPEED']; })(),
     }[cm.kind];
     return { label: f[2], left: f[0](cm.lo), right: f[0](cm.hi) + f[1] };
   }
@@ -1274,25 +1298,47 @@ body.exporting .stage { cursor: progress; }
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
   const inkOn = (hex) => { const [r, g, b] = hexToRgb(hex); return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#101418' : '#ffffff'; };
-  /* one marker per mile or km (every 2, 5, 10... on very long routes), with elapsed time and split pace at each */
+  /* markers at a sport-appropriate spacing: each mile or km, every 500 m rowing, every 100 m swimming, or whatever "Marker every" says */
+  function markerInterval() {
+    if (S.markerEvery !== 'auto') return +S.markerEvery;
+    const sp = effSport();
+    if (sp === 'rowing' || sp === 'paddling') return 500;
+    if (sp === 'swimming') return 100;
+    return S.units === 'mi' ? MI : 1000;
+  }
+  const fmtN = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  function distLabel(dist, iv) {
+    if (iv >= 1000) { const v = dist / (S.units === 'mi' ? MI : 1000); return { tag: fmtN(v), title: (S.units === 'mi' ? 'MILE ' : 'KM ') + fmtN(v) }; }
+    if (dist >= 1000) { const k = fmtN(Math.round(dist / 100) / 10); return { tag: k + 'k', title: k + ' KM' }; }
+    return { tag: String(Math.round(dist)), title: Math.round(dist) + ' M' };
+  }
   function markerModel() {
-    const key = trackId + '|' + S.units; if (mkCache.key === key) return mkCache;
-    const g = S.track.grid, M = S.track.M, unit = S.units === 'mi' ? MI : 1000, total = g.d[M - 1];
-    let mult = 1; const count = Math.floor(total / unit);
-    for (const m of [1, 2, 5, 10, 20, 50]) { mult = m; if (count / m <= 30) break; }
+    const iv = markerInterval(), key = trackId + '|' + S.units + '|' + iv; if (mkCache.key === key) return mkCache;
+    const g = S.track.grid, M = S.track.M, total = g.d[M - 1];
+    let mult = 1; const count = Math.floor(total / iv);
+    for (const m of [1, 2, 5, 10, 20, 50, 100]) { mult = m; if (count / m <= 30) break; }
     const items = []; let prevT = 0, k = 1;
-    for (let n = mult; n * unit < total - 5; n += mult) {
-      const target = n * unit;
+    for (let n = mult; n * iv < total - 5; n += mult) {
+      const target = n * iv;
       while (k < M - 1 && g.d[k] < target) k++;
       const f = g.d[k] > g.d[k - 1] ? Math.min(1, Math.max(0, (target - g.d[k - 1]) / (g.d[k] - g.d[k - 1]))) : 0;
-      const at = (a) => (a ? a[k - 1] + (a[k] - a[k - 1]) * f : null), tt = at(g.t);
-      items.push({ n, p: (k - 1 + f) / (M - 1), lng: at(g.lng), lat: at(g.lat), t: tt, split: tt !== null ? (tt - prevT) / mult : null, fast: false });
+      const at = (a) => (a ? a[k - 1] + (a[k] - a[k - 1]) * f : null), tt = at(g.t), dt = tt !== null ? tt - prevT : 0;
+      items.push({ n, dist: target, label: distLabel(target, iv), p: (k - 1 + f) / (M - 1), lng: at(g.lng), lat: at(g.lat), t: tt, speed: dt > 0 ? (mult * iv) / dt : null, fast: false });
       if (tt !== null) prevT = tt;
     }
-    const timed = items.filter((m) => m.split > 0);
-    if (timed.length >= 3) timed.reduce((a, b) => (b.split < a.split ? b : a)).fast = true;
-    mkCache = { key, items, unit };
+    const timed = items.filter((m) => m.speed);
+    if (timed.length >= 3) timed.reduce((a, b) => (b.speed > a.speed ? b : a)).fast = true;
+    mkCache = { key, items };
     return mkCache;
+  }
+  /* callouts need room to breathe: with dense markers, show one only when 3+ seconds have passed (the fastest split always shows) */
+  let coCache = { key: '' };
+  function calloutList() {
+    const mk = markerModel(), key = mk.key + '|' + planId + '|' + S.duration; if (coCache.key === key) return coCache.list;
+    const list = []; let last = -Infinity;
+    for (const m of mk.items) { const tau = markerTau(m); if (m.fast || (tau - last) * S.duration >= 3.2) { list.push(m); last = tau; } }
+    coCache = { key, list };
+    return list;
   }
   /* the moment (0..1 of the video) the head reaches a marker */
   function markerTau(m) {
@@ -1336,8 +1382,9 @@ body.exporting .stage { cursor: progress; }
       ctx.beginPath(); ctx.arc(x, cy, r, 0, Math.PI * 2); ctx.fillStyle = passed ? col : '#fff'; ctx.fill();
       ctx.shadowBlur = 0; ctx.lineWidth = 3 * u * sc; ctx.strokeStyle = passed ? '#fff' : col; ctx.stroke();
       ctx.fillStyle = passed ? inkOn(col) : '#101418';
-      ctx.font = '700 ' + (String(m.n).length > 2 ? 14 : 20) * u * sc + 'px ' + FONT_NUM;
-      ctx.fillText(String(m.n), x, cy + 1 * u * sc);
+      const tl = m.label.tag.length;
+      ctx.font = '700 ' + (tl > 3 ? 13 : tl > 2 ? 15 : 20) * u * sc + 'px ' + FONT_NUM;
+      ctx.fillText(m.label.tag, x, cy + 1 * u * sc);
     }
     ctx.restore();
   }
@@ -1345,11 +1392,8 @@ body.exporting .stage { cursor: progress; }
   function drawCallout(ctx, u, xRight, y, m, a, accent) {
     const e = a < 0.25 ? 1 - Math.pow(1 - a / 0.25, 3) : 1, alpha = a > 2.0 ? Math.max(0, 1 - (a - 2.0) / 0.4) : e;
     if (alpha <= 0) return;
-    const un = S.units, l1 = (un === 'mi' ? 'MILE ' : 'KM ') + m.n; let l2 = '';
-    if (m.t !== null && m.split > 0) {
-      const spd = (un === 'mi' ? MI : 1000) / m.split;
-      l2 = C.fmtDuration(m.t) + '    ' + (usePace() ? C.fmtPace(spd, un) + ' ' + C.paceUnit(un) : C.fmtSpeed(spd, un) + ' ' + C.speedUnit(un));
-    }
+    const l1 = m.label.title; let l2 = '';
+    if (m.t !== null && m.speed) { const po = paceOrSpeed(m.speed); l2 = C.fmtDuration(m.t) + '    ' + po.value + ' ' + po.unit; }
     const f1 = 44 * u, f2 = 28 * u, f3 = 20 * u, px = 26 * u, py = 18 * u;
     ctx.save(); ctx.globalAlpha = alpha; ctx.shadowBlur = 0; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.font = '700 ' + f1 + 'px ' + FONT_NUM; const w1 = ctx.measureText(l1).width;
@@ -1429,8 +1473,8 @@ body.exporting .stage { cursor: progress; }
 
     // split callout when the head passes a marker
     if (S.callouts && plan) {
-      const mk = markerModel(); let act = null, aa = 0;
-      for (const m of mk.items) { const a = (S.tau - markerTau(m)) * S.duration; if (a >= 0 && a < 2.4) { act = m; aa = a; } }
+      let act = null, aa = 0;
+      for (const m of calloutList()) { const a = (S.tau - markerTau(m)) * S.duration; if (a >= 0 && a < 2.4) { act = m; aa = a; } }
       if (act) drawCallout(ctx, u, x0 + innerW, ty + 26 * u, act, aa, cm ? colorAt(cm, act.p) : S.color);
     }
 
@@ -1634,9 +1678,11 @@ body.exporting .stage { cursor: progress; }
     const t = S.track; if (!t) return;
     const m = t.meta, u = S.units;
     const cell = (label, val, unit) => '<div><span>' + label + '</span><b>' + val + (unit ? '<small>' + unit + '</small>' : '') + '</b></div>';
-    const avg = m.avgSpeed ? (usePace() ? cell('Avg pace', C.fmtPace(m.avgSpeed, u), C.paceUnit(u)) : cell('Avg speed', C.fmtSpeed(m.avgSpeed, u), C.speedUnit(u))) : '';
+    const po = m.avgSpeed ? paceOrSpeed(m.avgSpeed) : null;
+    const avg = po ? cell('Avg ' + po.label.toLowerCase(), po.value, po.unit) : '';
     $('#kv').innerHTML = cell('Distance', C.fmtDistance(m.totalDist, u), C.distUnit(u)) + (m.totalTime ? cell('Time', C.fmtDuration(m.totalTime), '') : '') +
       (m.gain !== null ? cell('Elev gain', C.fmtElev(m.gain, u), C.elevUnit(u)) : '') + avg;
+    $('#sport').querySelector('option[value="auto"]').textContent = 'Auto: ' + (SPORT_NAME[m.sport || 'other'] || 'Other');
     $('#kv').hidden = false; $('#noActivity').hidden = true;
     const bits = [];
     if (m.sport && m.sport !== 'other') bits.push(m.sport[0].toUpperCase() + m.sport.slice(1));
@@ -1657,6 +1703,7 @@ body.exporting .stage { cursor: progress; }
   }
 
   function buildControls() {
+    for (const [v, label] of SPORTS) { const o = document.createElement('option'); o.value = v; o.textContent = label; $('#sport').appendChild(o); }
     $$('[data-seg]').forEach((el) => {
       const key = el.dataset.seg;
       SEGS[key].forEach(([v, label]) => {
@@ -1690,6 +1737,12 @@ body.exporting .stage { cursor: progress; }
     $('#aspect').addEventListener('change', (e) => { S.aspect = e.target.value; save(); applySize(); });
     $('#res').addEventListener('change', (e) => { S.res = +e.target.value; save(); applySize(); });
     $('#fps').addEventListener('change', (e) => { S.fps = +e.target.value; save(); });
+    $('#sport').addEventListener('change', (e) => {
+      S.sport = e.target.value;
+      if (['rowing', 'paddling', 'swimming'].includes(S.sport) && S.units === 'mi') S.units = 'km'; // metres and kilometres are the norm on the water
+      save(); syncControls(); updateActivityPanel(); refresh();
+    });
+    $('#markerEvery').addEventListener('change', (e) => { S.markerEvery = e.target.value; save(); refresh(); });
     $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
     $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
     for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend']]) {
@@ -1727,6 +1780,7 @@ body.exporting .stage { cursor: progress; }
     const isCustom = !SWATCHES.some(([h]) => h.toUpperCase() === S.color.toUpperCase());
     $('#customSwatch').classList.toggle('on', isCustom);
     if (/^#[0-9a-f]{6}$/i.test(S.color)) $('#customColor').value = S.color.toLowerCase();
+    $('#sport').value = S.sport; $('#markerEvery').value = S.markerEvery;
     setAccent(S.color); updateAutoLen();
   }
 
