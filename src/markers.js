@@ -3,10 +3,9 @@ import { R, S } from './state.js';
 import { effSport, paceOrSpeed } from './sport.js';
 import { colorAt, colorModel } from './colour.js';
 import { inkOn, rr, spacing } from './util.js';
-import { FONT_NUM } from './config.js';
+import { FONT_NUM, MI_M as MI } from './config.js';
 
 /* ------------------------------ distance markers ------------------------------ */
-const MI = 1609.344;
 
 let mkCache = { key: '' };
 
@@ -21,8 +20,12 @@ function markerInterval() {
 
 const fmtN = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
 
+/* water sports keep metres (500 m splits, 100 m laps) when the spacing is automatic; everything else follows the units choice */
+const waterAuto = () => S.markerEvery === 'auto' && ['rowing', 'paddling', 'swimming'].includes(effSport());
+
 function distLabel(dist, iv) {
-  if (iv >= 1000) { const v = dist / (S.units === 'mi' ? MI : 1000); return { tag: fmtN(v), title: (S.units === 'mi' ? 'MILE ' : 'KM ') + fmtN(v) }; }
+  if (S.units === 'mi' && !waterAuto()) { const v = Number((dist / MI).toFixed(2)).toString(); return { tag: v, title: 'MILE ' + v }; }
+  if (iv >= 1000) { const v = dist / 1000; return { tag: fmtN(v), title: 'KM ' + fmtN(v) }; }
   if (dist >= 1000) { const k = fmtN(Math.round(dist / 100) / 10); return { tag: k + 'k', title: k + ' KM' }; }
   return { tag: String(Math.round(dist)), title: Math.round(dist) + ' M' };
 }

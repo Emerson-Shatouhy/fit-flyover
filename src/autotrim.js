@@ -2,7 +2,7 @@ import { haversine } from './core.js';
 
 /* Finds the race (the hardest sustained effort) inside an activity so the trim handles can be placed for you.
    Works on speed over time: the warm-up, cool-down and standing around are all slower than the race itself.
-   Input is the raw parsed points; output is in seconds from the first timestamped point, the same units as the trim sliders. */
+   Input is the raw parsed points; output is in seconds from the first timestamped point, the same units as S.trimStart and S.trimEnd. */
 
 const GRID = 1;            // resample to 1 Hz
 const MOVING = 0.5;        // m/s, below this counts as standing still

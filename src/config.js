@@ -25,11 +25,31 @@ export const SWATCHES = [['#FF5A1F', 'Ember'], ['#FFD21F', 'Gold'], ['#3DDC97', 
 export const SEGS = {
   basemap: [['sat', 'Satellite'], ['dark', 'Dark'], ['light', 'Light']],
   camera: [['chase', 'Chase'], ['orbit', 'Orbit'], ['overhead', 'Overhead']],
-  units: [['mi', 'Miles'], ['km', 'Kilometres']],
+  units: [['mi', 'Imperial'], ['km', 'Metric']], // values stay 'mi'/'km' so saved settings keep working
   colorBy: [['solid', 'Solid'], ['hr', 'HR'], ['pwr', 'Power'], ['spd', 'Speed'], ['ele', 'Elev']],
   graph: [['none', 'Off'], ['ele', 'Elev'], ['hr', 'HR'], ['pwr', 'Power']],
 };
 
-export const STORE_KEY = 'route-flyover-settings-v1';
+export const MI_M = 1609.344;
+
+/* "Marker every" choices as [metres, miles]: the same spacing in each system, so switching units keeps the pick */
+export const MARKER_STEPS = [[100, 0.1], [250, 0.25], [500, 0.5], [1000, 1], [5000, 5]];
+
+const metres = (mi) => String(Number((mi * MI_M).toFixed(4)));
+
+/* the options for one unit system, as [value in metres, label] */
+export function markerOptions(units) {
+  return MARKER_STEPS.map(([m, mi]) => units === 'mi' ? [metres(mi), mi + ' mi'] : [String(m), m >= 1000 ? m / 1000 + ' km' : m + ' m']);
+}
+
+/* a saved or previous pick, carried over to the current unit system (or 'auto' if it is not one of the steps) */
+export function markerForUnits(val, units) {
+  if (val === 'auto') return 'auto';
+  const hit = MARKER_STEPS.find(([m, mi]) => String(m) === String(val) || metres(mi) === String(val));
+  if (!hit) return 'auto';
+  return units === 'mi' ? metres(hit[1]) : String(hit[0]);
+}
+
+export const STORE_KEY ='route-flyover-settings-v1';
 
 export const SAVED_KEYS = ['basemap', 'color', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'stats'];

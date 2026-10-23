@@ -33,11 +33,14 @@ function trimmedParsed() {
 
 export function adoptRaw(parsed) {
   R.raw = parsed; R.fullTrack = null; S.trimStart = 0; S.trimEnd = 0;
-  const max = Math.max(1, Math.floor(rawSpan().secs * 0.9));
-  for (const id of ['trimStart', 'trimEnd']) { $('#' + id).max = max; $('#' + id).step = max > 1800 ? 5 : 1; $('#' + id)._sync(); }
   updateTrimNote();
   return parsed;
 }
+
+/* back to the whole activity */
+export function resetTrim() { S.trimStart = 0; S.trimEnd = 0; onTrim(); }
+
+export function refreshTrimNote() { updateTrimNote(); if (S.trimView) scheduleTrimLive(); }
 
 /* seconds from the start of the file -> progress p (0..1) along the full course */
 function trimOff() { const sp = rawSpan(); return sp.timed && R.fullTrack.meta.startTime != null ? (R.fullTrack.meta.startTime - sp.t0) / 1000 : 0; }
@@ -63,7 +66,7 @@ function updateTrimNote() {
   if (!R.raw) return;
   const T = rawSpan().secs, trimmed = S.trimStart || S.trimEnd;
   if (R.fullTrack && trimmed) { const i = trimInfo(); $('#trimNote').textContent = 'Keeping ' + C.fmtDuration(i.a) + ' to ' + C.fmtDuration(i.b) + ' (' + fmtDist(i.da) + ' to ' + fmtDist(i.db) + ') of ' + C.fmtDuration(T); }
-  else $('#trimNote').textContent = 'Drag a slider, or the START and END handles on the preview, to choose where it begins and ends.';
+  else $('#trimNote').textContent = 'Auto-detect the race, or choose Adjust trim and drag the START and END handles on the preview.';
   $('#trimBox').hidden = false;
 }
 
@@ -209,7 +212,7 @@ export function bindTrimDrag() {
     const sg = stripGeom(), T = rawSpan().secs, t = Math.round(Math.min(1, Math.max(0, (cx - sg.x0) / sg.w)) * T), gap = Math.ceil(T * 0.05), cap = Math.floor(T * 0.9);
     if (grab === 'a') S.trimStart = Math.max(0, Math.min(t, T - S.trimEnd - gap, cap));
     else S.trimEnd = Math.max(0, Math.min(T - t, T - S.trimStart - gap, cap));
-    $('#trimStart')._sync(); $('#trimEnd')._sync(); updateTrimNote(); scheduleTrimLive(); queueRetrim();
+    updateTrimNote(); scheduleTrimLive(); queueRetrim();
   };
   view.addEventListener('pointerdown', (e) => {
     if (!S.trimView) return;
@@ -228,14 +231,11 @@ export function bindTrimDrag() {
   view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
 }
 
-export function onTrim(moved) {
+export function onTrim() {
   enterTrimView();
-  // the two trims share the activity: keep at least 5% of it, giving way on the slider that was not moved
-  const T = rawSpan().secs, room = Math.floor(T * 0.95);
-  if (S.trimStart + S.trimEnd > room) {
-    if (moved === 'trimStart') S.trimEnd = Math.max(0, room - S.trimStart); else S.trimStart = Math.max(0, room - S.trimEnd);
-    $('#trimStart')._sync(); $('#trimEnd')._sync();
-  }
+  // the two trims share the activity: keep at least 5% of it
+  const room = Math.floor(rawSpan().secs * 0.95);
+  if (S.trimStart + S.trimEnd > room) S.trimEnd = Math.max(0, room - S.trimStart);
   updateTrimNote(); scheduleTrimLive(); queueRetrim();
 }
 
@@ -246,13 +246,10 @@ export function autoTrim() {
   if (!sp.timed) { note.textContent = 'Auto-detect needs timestamps, and this file has none.'; return; }
   const res = detectRace(R.raw.points);
   if (res.confidence === 'none') { note.textContent = res.note; return; }
-  const T = sp.secs, step = Math.max(1, +$('#trimStart').step || 1), cap = Math.floor(T * 0.9), room = Math.floor(T * 0.95);
-  // snap outward to the slider step so the handle shows exactly what was kept
-  S.trimStart = Math.min(cap, Math.floor(res.start / step) * step);
-  S.trimEnd = Math.min(cap, Math.floor(Math.max(0, T - res.end) / step) * step);
-  if (S.trimStart + S.trimEnd > room) S.trimEnd = Math.max(0, room - S.trimStart);
-  $('#trimStart')._sync(); $('#trimEnd')._sync();
-  onTrim('trimStart');
+  const T = sp.secs, cap = Math.floor(T * 0.9);
+  S.trimStart = Math.min(cap, Math.floor(res.start));
+  S.trimEnd = Math.min(cap, Math.floor(Math.max(0, T - res.end)));
+  onTrim();
   if (res.note) note.textContent = res.note + ' ' + note.textContent;
 }
 

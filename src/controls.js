@@ -1,8 +1,8 @@
 import * as C from './core.js';
 import { $, $$, hexToRgb } from './util.js';
 import { SPORTS } from './sport.js';
-import { PRESETS, SEGS, SWATCHES } from './config.js';
-import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, onTrim } from './trim.js';
+import { PRESETS, SEGS, SWATCHES, markerForUnits, markerOptions } from './config.js';
+import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, refreshTrimNote, resetTrim } from './trim.js';
 import { applyFrame, refresh, replan } from './frames.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
@@ -40,8 +40,6 @@ export function buildControls() {
   sw.appendChild(custom);
   $('#customColor').addEventListener('input', (e) => onColor(e.target.value.toUpperCase()));
 
-  bindRange('trimStart', 'trimStart', (v) => v + ' s', () => onTrim('trimStart'));
-  bindRange('trimEnd', 'trimEnd', (v) => v + ' s', () => onTrim('trimEnd'));
   bindRange('duration', 'duration', (v) => v + ' s', () => { replan(); refresh(); updateAutoLen(); });
   bindRange('pitch', 'pitch', (v) => v + '°', () => { replan(); refresh(); });
   bindRange('zoom', 'zoom', (v) => (v > 0 ? '+' : '') + v.toFixed(1), () => { replan(); refresh(); });
@@ -51,11 +49,7 @@ export function buildControls() {
   $('#aspect').addEventListener('change', (e) => { S.aspect = e.target.value; save(); applySize(); });
   $('#res').addEventListener('change', (e) => { S.res = +e.target.value; save(); applySize(); });
   $('#fps').addEventListener('change', (e) => { S.fps = +e.target.value; save(); });
-  $('#sport').addEventListener('change', (e) => {
-    S.sport = e.target.value;
-    if (['rowing', 'paddling', 'swimming'].includes(S.sport) && S.units === 'mi') S.units = 'km'; // metres and kilometres are the norm on the water
-    save(); syncControls(); updateActivityPanel(); refresh();
-  });
+  $('#sport').addEventListener('change', (e) => { S.sport = e.target.value; save(); syncControls(); updateActivityPanel(); refresh(); });
   $('#markerEvery').addEventListener('change', (e) => { S.markerEvery = e.target.value; save(); refresh(); });
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
@@ -66,7 +60,41 @@ export function buildControls() {
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });
   $('#autoLen').addEventListener('click', () => { S.duration = C.suggestDuration(S.track.L); syncControls(); replan(); refresh(); });
+  buildTabs();
   syncControls();
+}
+
+/* Activity / Style / Overlay: one group on screen at a time, arrow keys move between tabs */
+function buildTabs() {
+  const tabs = $$('.tabs [role="tab"]');
+  const show = (tab, focus) => {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      $('#' + t.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (focus) tab.focus();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => show(t));
+    t.addEventListener('keydown', (e) => {
+      const k = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (k) { e.preventDefault(); show(tabs[(i + k + tabs.length) % tabs.length], true); }
+      else if (e.key === 'Home') { e.preventDefault(); show(tabs[0], true); } else if (e.key === 'End') { e.preventDefault(); show(tabs[tabs.length - 1], true); }
+    });
+  });
+}
+
+/* the "Marker every" choices follow the units: 250 m in metric, 0.25 mi in imperial, and the pick carries over */
+let markerUnits = null;
+
+function syncMarkerOptions() {
+  S.markerEvery = markerForUnits(S.markerEvery, S.units);
+  const sel = $('#markerEvery');
+  if (markerUnits !== S.units) {
+    sel.replaceChildren(new Option('Auto', 'auto'), ...markerOptions(S.units).map(([v, label]) => new Option(label, v)));
+    markerUnits = S.units;
+  }
+  sel.value = S.markerEvery;
 }
 
 function bindRange(id, key, fmt, onInput) {
@@ -94,7 +122,7 @@ export function syncControls() {
   const isCustom = !SWATCHES.some(([h]) => h.toUpperCase() === S.color.toUpperCase());
   $('#customSwatch').classList.toggle('on', isCustom);
   if (/^#[0-9a-f]{6}$/i.test(S.color)) $('#customColor').value = S.color.toLowerCase();
-  $('#sport').value = S.sport; $('#markerEvery').value = S.markerEvery;
+  $('#sport').value = S.sport; syncMarkerOptions();
   setAccent(S.color); updateAutoLen();
 }
 
@@ -105,7 +133,7 @@ function onSeg(key, val) {
   if (key === 'basemap') applyBasemap();
   if (key === 'camera') replan();
   if (key === 'colorBy') applyRouteColor();
-  if (key === 'units') updateActivityPanel();
+  if (key === 'units') { updateActivityPanel(); refreshTrimNote(); } // marker options already followed in syncControls
   refresh();
 }
 
@@ -146,12 +174,10 @@ export function bindEvents() {
     if (!S.playing && S.tau >= 1) applyFrame(0);
     setPlaying(!S.playing);
   });
-  for (const id of ['trimStart', 'trimEnd']) $('#' + id).addEventListener('pointerdown', enterTrimView);
-  $('#trimViewBtn').addEventListener('click', enterTrimView);
+  $('#trimAdjustBtn').addEventListener('click', enterTrimView);
   $('#trimAutoBtn').addEventListener('click', autoTrim);
   bindTrimDrag();
-  $('#trimPreviewBtn').addEventListener('click', () => { if (S.trimView) { exitTrimView(false); applyFrame(0); setPlaying(true); } });
-  $('#trimResetBtn').addEventListener('click', () => { S.trimStart = 0; S.trimEnd = 0; $('#trimStart')._sync(); $('#trimEnd')._sync(); onTrim(); });
+  $('#trimResetBtn').addEventListener('click', resetTrim);
   const scrub = $('#scrub');
   scrub.addEventListener('input', () => { if (S.trimView) exitTrimView(false); applyFrame(scrub.value / 1000); });
   scrub.addEventListener('pointerdown', () => { R.dragging = true; });

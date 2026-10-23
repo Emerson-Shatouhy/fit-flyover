@@ -15,7 +15,10 @@
     <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M3 20c4-1 5-6 8-8s5 1 7-3 3-5 5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="4" r="2.4" fill="currentColor"/></svg>
     <span>Route Flyover</span>
   </div>
-  <div class="top-meta" id="topMeta">No activity loaded</div>
+  <div class="top-right">
+    <div class="top-meta" id="topMeta">No activity loaded</div>
+    <div class="seg seg-sm" data-seg="units" data-lock role="radiogroup" aria-label="Units"></div>
+  </div>
 </header>
 
 <main class="app" id="app">
@@ -46,75 +49,91 @@
   </section>
 
   <aside class="panel" id="panel" aria-label="Controls">
-    <div class="sec" id="secActivity" data-lock>
-      <h2>Activity <button class="link" id="replaceBtn" type="button" hidden>Replace file</button></h2>
-      <p class="note" id="noActivity">Nothing loaded yet.</p>
-      <div class="kv" id="kv" hidden></div>
-      <p class="note" id="activityNote" hidden></p>
-      <div id="trimBox" hidden>
-        <div class="field"><div class="lab"><label for="trimStart">Trim start</label><output id="trimStartOut">0 s</output></div><input type="range" id="trimStart" min="0" max="100" step="1" value="0"></div>
-        <div class="field"><div class="lab"><label for="trimEnd">Trim end</label><output id="trimEndOut">0 s</output></div><input type="range" id="trimEnd" min="0" max="100" step="1" value="0"></div>
-        <p class="note" id="trimNote"></p>
-        <div style="display:flex;flex-wrap:wrap;gap:6px 16px"><button class="link" id="trimAutoBtn" type="button">Auto-detect race</button><button class="link" id="trimViewBtn" type="button">Show full course</button><button class="link" id="trimPreviewBtn" type="button">Preview trimmed</button><button class="link" id="trimResetBtn" type="button">Reset trim</button></div>
-      </div>
+    <div class="tabs" role="tablist" aria-label="Control groups" data-lock>
+      <button type="button" role="tab" id="tabActivity" aria-controls="paneActivity" aria-selected="true">Activity</button>
+      <button type="button" role="tab" id="tabStyle" aria-controls="paneStyle" aria-selected="false" tabindex="-1">Style</button>
+      <button type="button" role="tab" id="tabOverlay" aria-controls="paneOverlay" aria-selected="false" tabindex="-1">Overlay</button>
     </div>
 
-    <div class="sec" data-lock>
-      <h2>Look</h2>
-      <div class="field"><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
-      <div class="field"><div class="lab">Route colour</div><div class="swatches" id="swatches" role="radiogroup" aria-label="Route colour"></div></div>
-      <div class="field"><div class="lab">Colour route by</div><div class="seg" data-seg="colorBy" role="radiogroup" aria-label="Colour route by"></div></div>
-      <div class="field"><div class="lab">Camera</div><div class="seg" data-seg="camera" role="radiogroup" aria-label="Camera style"></div></div>
-    </div>
+    <div class="panes" data-lock>
+      <section class="pane" id="paneActivity" role="tabpanel" aria-labelledby="tabActivity">
+        <h2>Activity <button class="link" id="replaceBtn" type="button" hidden>Replace file</button></h2>
+        <p class="note" id="noActivity">Nothing loaded yet.</p>
+        <div class="kv" id="kv" hidden></div>
+        <p class="note" id="activityNote" hidden></p>
+        <div class="trim" id="trimBox" hidden>
+          <h2>Trim</h2>
+          <p class="note" id="trimNote"></p>
+          <div class="btnrow">
+            <button class="btn primary" id="trimAutoBtn" type="button">Auto-detect race</button>
+            <button class="btn" id="trimAdjustBtn" type="button">Adjust trim</button>
+            <button class="link" id="trimResetBtn" type="button">Reset</button>
+          </div>
+        </div>
+      </section>
 
-    <div class="sec" data-lock>
-      <h2>Frame</h2>
-      <div class="grid2">
-        <div class="field"><div class="lab"><label for="aspect">Format</label></div>
-          <select id="aspect"><option value="9:16">9:16 Reels</option><option value="4:5">4:5 Feed</option><option value="1:1">1:1 Square</option><option value="16:9">16:9 Wide</option></select></div>
-        <div class="field"><div class="lab"><label for="res">Size</label></div>
-          <select id="res"><option value="540">Draft 540p</option><option value="720">720p</option><option value="1080">1080p HD</option></select></div>
-      </div>
-      <div class="field"><div class="lab"><label for="duration">Length</label><span><button class="link" id="autoLen" type="button" hidden></button> <output id="durationOut">30 s</output></span></div><input type="range" id="duration" min="10" max="90" step="1"></div>
-      <div class="field"><div class="lab"><label for="pitch">Tilt</label><output id="pitchOut">66°</output></div><input type="range" id="pitch" min="0" max="80" step="1"></div>
-      <div class="field"><div class="lab"><label for="zoom">Zoom</label><output id="zoomOut">0</output></div><input type="range" id="zoom" min="-2" max="2" step="0.1"></div>
-      <div class="field"><div class="lab"><label for="terrain">Terrain height</label><output id="terrainOut">1.5×</output></div><input type="range" id="terrain" min="0.5" max="4" step="0.1"></div>
-    </div>
+      <section class="pane" id="paneStyle" role="tabpanel" aria-labelledby="tabStyle" hidden>
+        <div class="field"><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
+        <div class="field"><div class="lab">Route colour</div><div class="swatches" id="swatches" role="radiogroup" aria-label="Route colour"></div></div>
+        <div class="field"><div class="lab">Colour route by</div><div class="seg" data-seg="colorBy" role="radiogroup" aria-label="Colour route by"></div></div>
+        <div class="field"><div class="lab">Camera</div><div class="seg" data-seg="camera" role="radiogroup" aria-label="Camera style"></div></div>
+        <div class="grid2">
+          <div class="field"><div class="lab"><label for="aspect">Format</label></div>
+            <select id="aspect"><option value="9:16">9:16 Reels</option><option value="4:5">4:5 Feed</option><option value="1:1">1:1 Square</option><option value="16:9">16:9 Wide</option></select></div>
+          <div class="field"><div class="lab"><label for="res">Size</label></div>
+            <select id="res"><option value="540">Draft 540p</option><option value="720">720p</option><option value="1080">1080p HD</option></select></div>
+        </div>
+        <div class="field"><div class="lab"><label for="duration">Length</label><span><button class="link" id="autoLen" type="button" hidden></button> <output id="durationOut">30 s</output></span></div><input type="range" id="duration" min="10" max="90" step="1"></div>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <div class="adv-body">
+            <div class="field"><div class="lab"><label for="pitch">Tilt</label><output id="pitchOut">66°</output></div><input type="range" id="pitch" min="0" max="80" step="1"></div>
+            <div class="field"><div class="lab"><label for="zoom">Zoom</label><output id="zoomOut">0</output></div><input type="range" id="zoom" min="-2" max="2" step="0.1"></div>
+            <div class="field"><div class="lab"><label for="terrain">Terrain height</label><output id="terrainOut">1.5×</output></div><input type="range" id="terrain" min="0.5" max="4" step="0.1"></div>
+            <div class="field"><div class="lab"><label for="fps">Frame rate</label></div>
+              <select id="fps"><option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select></div>
+            <label class="chk"><input type="checkbox" id="safeChk"><span>Keep text inside the Reels safe zone (9:16)</span></label>
+          </div>
+        </details>
+      </section>
 
-    <div class="sec" data-lock>
-      <h2>Overlay</h2>
-      <div class="field"><div class="lab"><label for="title">Title</label></div><input type="text" id="title" maxlength="60" placeholder="Morning run" autocomplete="off"></div>
-      <div class="field"><div class="lab">Units</div><div class="seg" data-seg="units" role="radiogroup" aria-label="Units"></div></div>
-      <div class="grid2">
+      <section class="pane" id="paneOverlay" role="tabpanel" aria-labelledby="tabOverlay" hidden>
+        <div class="field"><div class="lab"><label for="title">Title</label></div><input type="text" id="title" maxlength="60" placeholder="Morning run" autocomplete="off"></div>
         <div class="field"><div class="lab"><label for="sport">Sport</label></div><select id="sport"></select></div>
-        <div class="field"><div class="lab"><label for="markerEvery">Marker every</label></div>
-          <select id="markerEvery"><option value="auto">Auto</option><option value="100">100 m</option><option value="250">250 m</option><option value="500">500 m</option><option value="1000">1 km</option><option value="1609.344">1 mile</option><option value="5000">5 km</option></select></div>
-      </div>
-      <div class="field"><div class="lab">Graph</div><div class="seg" data-seg="graph" role="radiogroup" aria-label="Graph"></div></div>
-      <div class="checks">
-        <label class="chk"><input type="checkbox" data-stat="dist"><span>Distance</span></label>
-        <label class="chk"><input type="checkbox" data-stat="time"><span>Time</span></label>
-        <label class="chk"><input type="checkbox" data-stat="pace"><span>Pace / speed</span></label>
-        <label class="chk"><input type="checkbox" data-stat="gain"><span>Elev gain</span></label>
-        <label class="chk"><input type="checkbox" data-stat="hr"><span>Heart rate</span></label>
-        <label class="chk"><input type="checkbox" data-stat="power"><span>Power</span></label>
-        <label class="chk"><input type="checkbox" id="markersChk"><span>Distance markers</span></label>
-        <label class="chk"><input type="checkbox" id="calloutsChk"><span>Split callouts</span></label>
-        <label class="chk"><input type="checkbox" id="legendChk"><span>Colour legend</span></label>
-        <label class="chk"><input type="checkbox" id="creditChk"><span>Map credit</span></label>
-      </div>
-      <label class="chk"><input type="checkbox" id="safeChk"><span>Keep text inside the Reels safe zone (9:16)</span></label>
+        <div class="field"><div class="lab">Stats</div>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" data-stat="dist"><span>Distance</span></label>
+            <label class="chip"><input type="checkbox" data-stat="time"><span>Time</span></label>
+            <label class="chip"><input type="checkbox" data-stat="pace"><span>Pace / speed</span></label>
+            <label class="chip"><input type="checkbox" data-stat="gain"><span>Elev gain</span></label>
+            <label class="chip"><input type="checkbox" data-stat="hr"><span>Heart rate</span></label>
+            <label class="chip"><input type="checkbox" data-stat="power"><span>Power</span></label>
+          </div></div>
+        <div class="field"><div class="lab">Graph</div><div class="seg" data-seg="graph" role="radiogroup" aria-label="Graph"></div></div>
+        <div class="field"><div class="lab">Extras</div>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" id="markersChk"><span>Distance markers</span></label>
+            <label class="chip"><input type="checkbox" id="calloutsChk"><span>Split callouts</span></label>
+            <label class="chip"><input type="checkbox" id="legendChk"><span>Colour legend</span></label>
+          </div></div>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <div class="adv-body">
+            <div class="field"><div class="lab"><label for="markerEvery">Marker every</label></div><select id="markerEvery"></select></div>
+            <label class="chk"><input type="checkbox" id="creditChk"><span>Map credit</span></label>
+          </div>
+        </details>
+      </section>
     </div>
 
-    <div class="sec">
-      <h2>Export</h2>
-      <div class="field"><div class="lab"><label for="fps">Frame rate</label></div>
-        <select id="fps" data-lock><option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select></div>
-      <button class="btn primary" id="exportBtn" type="button" disabled>Export MP4</button>
-      <button class="btn" id="cancelBtn" type="button" hidden>Cancel</button>
+    <div class="export">
       <div class="bar" id="bar" hidden><i id="barFill"></i></div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
-      <p class="note">Export renders one frame at a time and waits for every map tile, so the video is sharp even if the preview stutters. Keep this tab in front while it runs.</p>
+      <div class="btnrow">
+        <button class="btn primary" id="exportBtn" type="button" disabled>Export MP4</button>
+        <button class="btn" id="cancelBtn" type="button" hidden>Cancel</button>
+        <button class="info" type="button" aria-label="About exporting" title="Export renders one frame at a time and waits for every map tile, so the video is sharp even if the preview stutters. Keep this tab in front while it runs.">i</button>
+      </div>
     </div>
   </aside>
 </main>
