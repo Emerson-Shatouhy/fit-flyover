@@ -8,6 +8,7 @@ import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
 import { weatherLine } from './weather.js';
 import { drawPhotos } from './photocard.js';
+import { drawLook } from './lookdraw.js';
 
 const basemapCredit = () => { const b = BASEMAPS[S.basemap]; return b.vector && !R.vecFail ? b.vcredit : b.credit; };
 
@@ -282,6 +283,7 @@ export function composite() {
   const W = view.width, H = view.height;
   vctx.fillStyle = '#0a0d10'; vctx.fillRect(0, 0, W, H);
   if (R.map) { const mc = R.map.getCanvas(); if (mc && mc.width > 0 && mc.height > 0) vctx.drawImage(mc, 0, 0, W, H); }
+  if (!S.trimView && S.track) drawLook(vctx, W, H);
   if (S.trimView && S.track) drawTrimOverlay(vctx, W, H);
   else if (S.track && R.frame) { drawOverlays(W, H, (R.frame.cam && R.frame.cam.card) || 0); drawCredit(vctx, W, H); }
   if (R.map) $('#tilesNote').hidden = !S.track || S.exporting || R.map.loaded();

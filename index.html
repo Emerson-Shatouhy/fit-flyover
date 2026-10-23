@@ -33,7 +33,7 @@
           <button class="btn" id="sampleBtn" type="button">Try a sample loop</button>
         </div>
         <p class="status" id="dropStatus" role="status" aria-live="polite"></p>
-        <small>Your file is read in this tab and never uploaded. The map itself loads tiles from Esri, OpenFreeMap and AWS, so the area you view is visible to them. If you turn on Weather, the start point and date are sent to Open-Meteo.</small>
+        <small>Your file is read in this tab and never uploaded. The map itself loads tiles from Esri, OpenFreeMap and AWS, so the area you view is visible to them. If you turn on Weather or Weather effects, the start point and date are sent to Open-Meteo.</small>
       </div>
     </div>
     <div class="transport" id="transport" data-lock>
@@ -74,6 +74,13 @@
 
       <section class="pane" id="paneStyle" role="tabpanel" aria-labelledby="tabStyle" hidden>
         <div class="field"><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
+        <div class="field"><div class="lab">Lighting</div>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" id="sunChk"><span>Real sun</span></label>
+            <label class="chip"><input type="checkbox" id="wxfxChk"><span>Weather effects</span></label>
+          </div>
+          <p class="note">Light and sky follow where the sun was during the activity. Weather effects add rain, snow, fog or cloud from that day's weather.</p>
+        </div>
         <div class="field" id="vecFields" hidden>
           <div class="lab">Labels</div><div class="seg" data-seg="labels" role="radiogroup" aria-label="Map labels"></div>
           <div class="chips" style="margin-top:8px"><label class="chip"><input type="checkbox" id="b3dChk"><span>3D buildings</span></label></div>

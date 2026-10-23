@@ -8,7 +8,7 @@ export const weatherLine = () => (S.weather && R.weather && R.weather.for === R.
 async function getJson(url) { const r = await fetch(url); if (!r.ok) throw new Error('weather ' + r.status); return r.json(); }
 
 export async function loadWeather() {
-  const t = R.fullTrack; if (!S.weather || !t || !t.meta.hasTime || t.meta.startTime == null) return;
+  const t = R.fullTrack; if (!(S.weather || S.wxfx) || !t || !t.meta.hasTime || t.meta.startTime == null) return;
   if (R.weather && R.weather.for === t) return;
   const [lng, lat] = t.line.coords[0], start = t.meta.startTime;
   const day = new Date(start).toISOString().slice(0, 10), next = new Date(start + 864e5).toISOString().slice(0, 10);

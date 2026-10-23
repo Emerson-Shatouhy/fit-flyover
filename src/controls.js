@@ -6,7 +6,7 @@ import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, refreshT
 import { applyFrame, refresh, replan } from './frames.js';
 import { loadWeather } from './weather.js';
 import { bindPhotos } from './photoui.js';
-import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
+import { applyBasemap, applyLineStyle, applyLook, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
 import { loadFile, setStatus, setTrack, updateActivityPanel } from './activity.js';
 import { setPlaying } from './playback.js';
@@ -46,9 +46,9 @@ export function buildControls() {
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $('#subtitle').addEventListener('input', (e) => { S.subtitle = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
-  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d'], ['weatherChk', 'weather']]) {
+  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d'], ['weatherChk', 'weather'], ['sunChk', 'sun'], ['wxfxChk', 'wxfx']]) {
     const el = $('#' + id); el.checked = !!S[key];
-    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } if (key === 'weather' && el.checked) loadWeather().then(() => refresh()); refresh(); }); // the card changes the camera timing
+    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } if (key === 'sun') applyLook(); if ((key === 'weather' || key === 'wxfx') && el.checked) loadWeather().then(() => { applyLook(); refresh(); }); else if (key === 'wxfx') applyLook(); refresh(); }); // the card changes the camera timing
   }
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });

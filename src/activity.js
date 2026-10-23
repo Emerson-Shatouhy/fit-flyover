@@ -3,7 +3,7 @@ import { $ } from './util.js';
 import { R, S, mapReady, view } from './state.js';
 import { adoptRaw, applyTrimView } from './trim.js';
 import { fitView, syncControls } from './controls.js';
-import { applyRouteColor } from './map.js';
+import { applyLook, applyRouteColor } from './map.js';
 import { applyFrame, replan } from './frames.js';
 import { setPlaying } from './playback.js';
 import { loadWeather } from './weather.js';
@@ -57,10 +57,11 @@ export async function setTrack(track, opts) {
   for (const [v, has] of [['ele', track.meta.hasEle], ['hr', track.meta.hasHr], ['pwr', track.meta.hasPower]]) { const b = $('[data-seg="graph"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
   for (const [v, has] of [['hr', track.meta.hasHr], ['pwr', track.meta.hasPower], ['spd', !!track.grid.spd], ['ele', track.meta.hasEle]]) { const b = $('[data-seg="colorBy"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
   if (!opts.retrim) resetPhotos();
-  $('#weatherChk').disabled = !track.meta.hasTime;
+  for (const id of ['weatherChk', 'sunChk', 'wxfxChk']) $('#' + id).disabled = !track.meta.hasTime;
   syncControls();
   updateActivityPanel();
-  if (!opts.retrim && S.weather) loadWeather().then(() => { if (S.track) applyFrame(S.tau); });
+  applyLook();
+  if (!opts.retrim && (S.weather || S.wxfx)) loadWeather().then(() => { applyLook(); if (S.track) applyFrame(S.tau); });
   applyRouteColor();
   R.map.getSource('route-full').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: track.line.coords } });
   const c = track.line.coords;
