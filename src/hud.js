@@ -66,6 +66,9 @@ function graphSeries(kind, n) {
   return serCache;
 }
 
+/* the date and card rule colour: the second colour, or the route colour if none is picked */
+const accent2 = () => S.color2 || S.color;
+
 const subtitleText = () => (S.subtitle || '').trim().toUpperCase();
 
 /* sets the font to the largest size at or below `size` (down to `min`) that fits `maxW`; letter spacing must already be set */
@@ -115,7 +118,7 @@ function drawHud(ctx, W, H) {
   ctx.fillText(title, x0, ty);
   if (t.meta.startTime) {
     const d = new Date(t.meta.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-    ctx.font = '600 ' + 30 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = S.color;
+    ctx.font = '600 ' + 30 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = accent2();
     ctx.fillText(d, x0, ty + 44 * u);
   }
   let dateBase = ty + (t.meta.startTime ? 44 * u : 0);
@@ -238,7 +241,7 @@ function drawCard(ctx, W, H, a) {
   let y = topInset + tfs * 0.8;
   ctx.fillText(title, cx, y);
   spacing(ctx, '0px');
-  ctx.shadowBlur = 0; ctx.fillStyle = S.color;
+  ctx.shadowBlur = 0; ctx.fillStyle = accent2();
   y += 26 * u; rr(ctx, cx - 56 * u, y, 112 * u, 6 * u, 3 * u); ctx.fill();
   let ly = y + 6 * u;
   const sub = subtitleText();
@@ -248,7 +251,7 @@ function drawCard(ctx, W, H, a) {
   }
   if (t.meta.startTime) {
     const d = new Date(t.meta.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-    ly += 46 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = S.color; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
+    ly += 46 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = accent2(); ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
     ctx.fillText(d, cx, ly);
     const wx = weatherLine();
     if (wx) { ly += 48 * u; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '600 ' + 34 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }

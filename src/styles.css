@@ -100,6 +100,8 @@ button, input, select { font: inherit; color: inherit; }
 
 .swatches { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
 .swatches button, .swatches label { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; background: var(--c); position: relative; }
+/* first dot of the secondary row: follows the route colour */
+.swatches button.match { background: linear-gradient(135deg, var(--accent) 50%, var(--panel) 50%); }
 .swatches button[aria-checked="true"], .swatches label.on { box-shadow: 0 0 0 2px var(--ink); }
 .swatches label { background: conic-gradient(#f43f5e, #f59e0b, #84cc16, #06b6d4, #6366f1, #d946ef, #f43f5e); display: block; }
 .swatches input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }

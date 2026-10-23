@@ -28,18 +28,8 @@ export function buildControls() {
       el.appendChild(b);
     });
   });
-  const sw = $('#swatches');
-  SWATCHES.forEach(([hex, name]) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.val = hex; b.setAttribute('aria-label', name); b.title = name; b.style.setProperty('--c', hex);
-    b.addEventListener('click', () => onColor(hex));
-    sw.appendChild(b);
-  });
-  const custom = document.createElement('label');
-  custom.title = 'Custom colour'; custom.id = 'customSwatch';
-  custom.innerHTML = '<input type="color" id="customColor" aria-label="Custom route colour">';
-  sw.appendChild(custom);
-  $('#customColor').addEventListener('input', (e) => onColor(e.target.value.toUpperCase()));
+  buildSwatches('#swatches', 'customColor', onColor, false);
+  buildSwatches('#swatches2', 'customColor2', onColor2, true);
 
   bindRange('duration', 'duration', (v) => v + ' s', () => { replan(); refresh(); updateAutoLen(); });
   bindRange('pitch', 'pitch', (v) => v + '°', () => { replan(); refresh(); });
@@ -99,6 +89,31 @@ function syncMarkerOptions() {
   sel.value = S.markerEvery;
 }
 
+/* a row of colour dots plus a custom picker; withMatch adds a first dot meaning "same as the route" */
+function buildSwatches(sel, customId, onPick, withMatch) {
+  const sw = $(sel), add = (hex, name, cls) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.val = hex; b.setAttribute('aria-label', name); b.title = name; b.style.setProperty('--c', hex || '#000');
+    if (cls) b.className = cls;
+    b.addEventListener('click', () => onPick(hex));
+    sw.appendChild(b);
+  };
+  if (withMatch) add('', 'Match the route colour', 'match');
+  SWATCHES.forEach(([hex, name]) => add(hex, name));
+  const custom = document.createElement('label');
+  custom.title = 'Custom colour'; custom.id = customId + 'Swatch';
+  custom.innerHTML = '<input type="color" id="' + customId + '" aria-label="Custom colour">';
+  sw.appendChild(custom);
+  $('#' + customId).addEventListener('input', (e) => onPick(e.target.value.toUpperCase()));
+}
+
+function syncSwatches(sel, customId, value) {
+  $$(sel + ' button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.val.toUpperCase() === value.toUpperCase())));
+  const isCustom = !!value && !SWATCHES.some(([h]) => h.toUpperCase() === value.toUpperCase());
+  $('#' + customId + 'Swatch').classList.toggle('on', isCustom);
+  if (/^#[0-9a-f]{6}$/i.test(value)) $('#' + customId).value = value.toLowerCase();
+}
+
 function bindRange(id, key, fmt, onInput) {
   const el = $('#' + id);
   const sync = () => {
@@ -120,10 +135,8 @@ function updateAutoLen() {
 export function syncControls() {
   for (const id of ['duration', 'pitch', 'zoom', 'terrain']) $('#' + id)._sync();
   $$('[data-seg]').forEach((el) => $$('button', el).forEach((b) => b.setAttribute('aria-checked', String(S[el.dataset.seg] === b.dataset.val))));
-  $$('#swatches button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.val.toUpperCase() === S.color.toUpperCase())));
-  const isCustom = !SWATCHES.some(([h]) => h.toUpperCase() === S.color.toUpperCase());
-  $('#customSwatch').classList.toggle('on', isCustom);
-  if (/^#[0-9a-f]{6}$/i.test(S.color)) $('#customColor').value = S.color.toLowerCase();
+  syncSwatches('#swatches', 'customColor', S.color);
+  syncSwatches('#swatches2', 'customColor2', S.color2);
   $('#sport').value = S.sport; syncMarkerOptions();
   $('#vecFields').hidden = !BASEMAPS[S.basemap].vector; $('#b3dChk').checked = S.b3d;
   setAccent(S.color); updateAutoLen();
@@ -140,6 +153,8 @@ function onSeg(key, val) {
   if (key === 'units') { updateActivityPanel(); refreshTrimNote(); } // marker options already followed in syncControls
   refresh();
 }
+
+function onColor2(hex) { S.color2 = hex; save(); syncControls(); refresh(); }
 
 function onColor(hex) { S.color = hex; save(); syncControls(); applyRouteColor(); refresh(); }
 
