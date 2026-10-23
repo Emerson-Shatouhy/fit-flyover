@@ -1,6 +1,6 @@
 import * as C from './core.js';
 import { R, S, vctx, view } from './state.js';
-import { statItems } from './sport.js';
+import { paceOrSpeed, statItems } from './sport.js';
 import { BASEMAPS, FONT_NUM, FONT_TXT, TERRAIN_CREDIT } from './config.js';
 import { $, rr, spacing } from './util.js';
 import { LUT, colorAt, colorModel, legendInfo } from './colour.js';
@@ -232,6 +232,8 @@ function drawCard(ctx, W, H, a) {
   const g = ctx.createLinearGradient(0, 0, 0, H * 0.4);
   g.addColorStop(0, 'rgba(0,0,0,0.66)'); g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.4);
+  const gb = ctx.createLinearGradient(0, H * 0.66, 0, H); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = gb; ctx.fillRect(0, H * 0.66, W, H * 0.34);
   ctx.translate(0, (a - 1) * 18 * u); // rises a little as it fades in, drops as it fades out
   ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 16 * u;
   const title = (S.title || t.meta.name || 'Route Flyover').toUpperCase();
@@ -257,6 +259,21 @@ function drawCard(ctx, W, H, a) {
     const wx = weatherLine();
     if (wx) { ly += 48 * u; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '600 ' + 34 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }
   }
+  // the totals along the bottom: distance and average pace (or speed), the same on the intro and the finish
+  const m = t.meta, u2 = S.units, cols = [{ label: 'DISTANCE', value: C.fmtDistance(m.totalDist, u2), unit: C.distUnit(u2) }];
+  if (m.avgSpeed) { const po = paceOrSpeed(m.avgSpeed); cols.push({ label: 'AVG ' + po.label.toUpperCase(), value: po.value, unit: po.unit }); }
+  const vfs = 84 * u, ufs = vfs * 0.4, lfs = 26 * u, base = H - (safe ? H * 0.17 : 70 * u), colW = Math.min(innerW / 2, 420 * u);
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 14 * u; ctx.textBaseline = 'alphabetic';
+  cols.forEach((c, i) => {
+    const x = cx + (i - (cols.length - 1) / 2) * colW;
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = '600 ' + lfs + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
+    ctx.fillText(c.label, x, base - vfs * 0.86 - 10 * u);
+    spacing(ctx, '0px'); ctx.font = '700 ' + vfs + 'px ' + FONT_NUM;
+    const vw = ctx.measureText(c.value).width; ctx.font = '500 ' + ufs + 'px ' + FONT_NUM; const uw = ctx.measureText(c.unit).width + ufs * 0.15, tot = vw + uw;
+    ctx.textAlign = 'left'; ctx.font = '700 ' + vfs + 'px ' + FONT_NUM; ctx.fillStyle = '#fff'; ctx.fillText(c.value, x - tot / 2, base);
+    ctx.font = '500 ' + ufs + 'px ' + FONT_NUM; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(c.unit, x - tot / 2 + vw + ufs * 0.15, base);
+  });
+  if (cols.length > 1) { ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(cx - 1 * u, base - vfs * 0.9, 2 * u, vfs * 0.9 + 6 * u); }
   spacing(ctx, '0px');
   ctx.restore();
 }
