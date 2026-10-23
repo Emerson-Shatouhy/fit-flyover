@@ -5,6 +5,7 @@ import { BASEMAPS, PRESETS, SEGS, SWATCHES, markerForUnits, markerOptions } from
 import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, refreshTrimNote, resetTrim } from './trim.js';
 import { applyFrame, refresh, replan } from './frames.js';
 import { loadWeather } from './weather.js';
+import { bindPhotos } from './photoui.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
 import { loadFile, setStatus, setTrack, updateActivityPanel } from './activity.js';
@@ -193,6 +194,7 @@ export function bindEvents() {
     if (!S.playing && S.tau >= 1) applyFrame(0);
     setPlaying(!S.playing);
   });
+  bindPhotos();
   $('#trimAdjustBtn').addEventListener('click', enterTrimView);
   $('#trimAutoBtn').addEventListener('click', autoTrim);
   bindTrimDrag();

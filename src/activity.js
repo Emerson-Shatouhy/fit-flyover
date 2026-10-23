@@ -7,6 +7,7 @@ import { applyRouteColor } from './map.js';
 import { applyFrame, replan } from './frames.js';
 import { setPlaying } from './playback.js';
 import { loadWeather } from './weather.js';
+import { renderPhotos, resetPhotos } from './photoui.js';
 import { SPORT_NAME, paceOrSpeed } from './sport.js';
 
 /* ------------------------------ loading ------------------------------ */
@@ -55,6 +56,7 @@ export async function setTrack(track, opts) {
   }
   for (const [v, has] of [['ele', track.meta.hasEle], ['hr', track.meta.hasHr], ['pwr', track.meta.hasPower]]) { const b = $('[data-seg="graph"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
   for (const [v, has] of [['hr', track.meta.hasHr], ['pwr', track.meta.hasPower], ['spd', !!track.grid.spd], ['ele', track.meta.hasEle]]) { const b = $('[data-seg="colorBy"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
+  if (!opts.retrim) resetPhotos();
   $('#weatherChk').disabled = !track.meta.hasTime;
   syncControls();
   updateActivityPanel();
@@ -67,6 +69,7 @@ export async function setTrack(track, opts) {
     { type: 'Feature', properties: { kind: 'end' }, geometry: { type: 'Point', coordinates: c[c.length - 1] } } ] });
   if (S.trimView) { replan(); applyTrimView(); }
   else { fitView(); replan(); applyFrame(0); setPlaying(true); }
+  renderPhotos(); // statuses depend on the new route and camera plan
 }
 
 export function updateActivityPanel() {

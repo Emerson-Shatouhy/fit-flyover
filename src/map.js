@@ -31,6 +31,7 @@ function buildStyle() {
       'route-seg': { type: 'geojson', data: EMPTY_FC, tolerance: 0.2 },
       head: { type: 'geojson', data: EMPTY_PT },
       ends: { type: 'geojson', data: EMPTY_FC },
+      photos: { type: 'geojson', data: EMPTY_FC },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': b.bg } },
@@ -42,6 +43,7 @@ function buildStyle() {
       { id: 'prog', type: 'line', source: 'route-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': S.color, 'line-width': 6.5 * u } },
       { id: 'prog-seg', type: 'line', source: 'route-seg', layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' }, paint: { 'line-color': ['get', 'c'], 'line-width': 6.5 * u } },
       { id: 'ends', type: 'circle', source: 'ends', paint: { 'circle-radius': 8 * u, 'circle-color': ['match', ['get', 'kind'], 'start', '#35D07F', '#FF4D4D'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 * u, 'circle-pitch-alignment': 'viewport' } },
+      { id: 'photo-pins', type: 'circle', source: 'photos', paint: { 'circle-radius': 7.5 * u, 'circle-color': '#ffffff', 'circle-stroke-color': S.color, 'circle-stroke-width': 3.5 * u, 'circle-pitch-alignment': 'viewport' } },
       { id: 'head-halo', type: 'circle', source: 'head', paint: { 'circle-radius': 20 * u, 'circle-color': S.color, 'circle-opacity': 0.35, 'circle-blur': 0.7, 'circle-pitch-alignment': 'viewport' } },
       { id: 'head', type: 'circle', source: 'head', paint: { 'circle-radius': 9.5 * u, 'circle-color': '#ffffff', 'circle-stroke-color': S.color, 'circle-stroke-width': 4 * u, 'circle-pitch-alignment': 'viewport' } },
     ],
@@ -120,6 +122,7 @@ export function applyRouteColor() {
   R.map.setPaintProperty('prog-glow', 'line-opacity', on ? 0.28 : 0.4);
   R.map.setPaintProperty('head-halo', 'circle-color', on ? '#ffffff' : S.color);
   R.map.setPaintProperty('head', 'circle-stroke-color', S.color);
+  R.map.setPaintProperty('photo-pins', 'circle-stroke-color', S.color);
 }
 
 export function applyLineStyle() {
@@ -131,6 +134,7 @@ export function applyLineStyle() {
   R.map.setPaintProperty('prog-casing', 'line-width', 10 * u);
   R.map.setPaintProperty('prog', 'line-width', 6.5 * u); R.map.setPaintProperty('prog-seg', 'line-width', 6.5 * u);
   R.map.setPaintProperty('ends', 'circle-radius', 8 * u); R.map.setPaintProperty('ends', 'circle-stroke-width', 3 * u);
+  R.map.setPaintProperty('photo-pins', 'circle-radius', 7.5 * u); R.map.setPaintProperty('photo-pins', 'circle-stroke-width', 3.5 * u);
   R.map.setPaintProperty('head-halo', 'circle-radius', 20 * u);
   R.map.setPaintProperty('head', 'circle-radius', 9.5 * u); R.map.setPaintProperty('head', 'circle-stroke-width', 4 * u);
 }

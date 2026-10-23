@@ -4,6 +4,7 @@ import { applyTrimView } from './trim.js';
 import { composite } from './hud.js';
 import { colorAt, colorModel, updateSegSource } from './colour.js';
 import { updateTransport } from './playback.js';
+import { photoSlots } from './photos.js';
 
 /* ------------------------------ frames ------------------------------ */
 export function replan() {
@@ -27,9 +28,20 @@ export function applyFrame(tau) {
   const vis = 1 - cam.card;
   R.map.setPaintProperty('head', 'circle-opacity', vis); R.map.setPaintProperty('head', 'circle-stroke-opacity', vis);
   R.map.setPaintProperty('head-halo', 'circle-opacity', 0.35 * vis);
+  updatePins(cam.line);
   const cm = colorModel();
   if (cm) { updateSegSource(cm, cam.line); R.map.setPaintProperty('head', 'circle-stroke-color', colorAt(cm, cam.p)); }
   updateTransport();
+}
+
+/* a small pin on the map for each photo the head has passed (it follows the drawn route, so the first and last frames match) */
+let pinKey = '';
+
+function updatePins(line) {
+  const hit = photoSlots().filter((x) => x.slot && x.p <= line + 1e-9), key = hit.map((x) => x.ph.id + ':' + x.p).join(',') + '|' + R.trackId;
+  if (key === pinKey) return;
+  pinKey = key;
+  R.map.getSource('photos').setData({ type: 'FeatureCollection', features: hit.map((x) => { const q = C.sampleTrack(S.track, x.p); return { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [q.lng, q.lat] } }; }) });
 }
 
 export const refresh = () => applyFrame(S.tau);

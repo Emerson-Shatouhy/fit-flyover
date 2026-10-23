@@ -124,6 +124,12 @@
             <label class="chip"><input type="checkbox" id="calloutsChk"><span>Split callouts</span></label>
             <label class="chip"><input type="checkbox" id="legendChk"><span>Colour legend</span></label>
           </div></div>
+        <div class="field"><div class="lab">Photos <span class="count" id="photoCount"></span></div>
+          <p class="note">Photos with a location or time pop up where they were taken.</p>
+          <div class="btnrow"><button class="btn" id="photoAddBtn" type="button" disabled>Add photos</button></div>
+          <p class="note warn" id="photoNote" hidden></p>
+          <ul class="photolist" id="photoList"></ul>
+        </div>
         <div class="field"><div class="lab">Temperature</div><div class="seg" data-seg="temp" role="radiogroup" aria-label="Temperature unit"></div></div>
         <details class="adv">
           <summary>Advanced</summary>
@@ -148,6 +154,7 @@
 </main>
 
 <div id="mapHost" aria-hidden="true"></div>
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
 <input type="file" id="fileInput" accept=".fit,.gpx,.tcx,.gz,application/gpx+xml" hidden>
 
 <script type="module" src="/src/main.js"></script>

@@ -7,6 +7,7 @@ import { LUT, colorAt, colorModel, legendInfo } from './colour.js';
 import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
 import { weatherLine } from './weather.js';
+import { drawPhotos } from './photocard.js';
 
 const basemapCredit = () => { const b = BASEMAPS[S.basemap]; return b.vector && !R.vecFail ? b.vcredit : b.credit; };
 
@@ -266,12 +267,12 @@ let hudLayer = null;
 function drawOverlays(W, H, card) {
   // the card and the HUD take turns: the card is gone before the HUD starts to appear (and the reverse at the end), so their titles never overlap
   const cardA = Math.min(1, Math.max(0, (card - 0.5) * 2)), hudA = Math.min(1, Math.max(0, (0.5 - card) * 2));
-  if (hudA >= 1) drawMarkers(vctx, W, H), drawHud(vctx, W, H);
+  if (hudA >= 1) drawMarkers(vctx, W, H), drawHud(vctx, W, H), drawPhotos(vctx, W, H);
   else if (hudA > 0) {
     if (!hudLayer) hudLayer = document.createElement('canvas');
     if (hudLayer.width !== W || hudLayer.height !== H) { hudLayer.width = W; hudLayer.height = H; }
     const lc = hudLayer.getContext('2d'); lc.clearRect(0, 0, W, H);
-    drawMarkers(lc, W, H); drawHud(lc, W, H);
+    drawMarkers(lc, W, H); drawHud(lc, W, H); drawPhotos(lc, W, H);
     vctx.save(); vctx.globalAlpha = hudA; vctx.drawImage(hudLayer, 0, 0); vctx.restore();
   }
   if (cardA > 0) drawCard(vctx, W, H, cardA);
