@@ -21,7 +21,7 @@ export const PALETTES = {
     land: '#f1ede4', civic: '#e9e4d8', park: '#cde5bd', wood: '#c1ddb1', water: '#a6cce9', waterway: '#8dbbe0',
     building: '#e1dccf', buildingEdge: '#d4cec1', extrusion: '#dcd6c9',
     path: '#d3cdc0', rail: '#b9b4a9', casing: '#cdc7ba', bridgeCasing: '#8f897b',
-    road: { minor: '#ffffff', secondary: '#ffffff', major: '#fff1cc', motorway: '#ffd88c' },
+    road: { minor: '#ffffff', secondary: '#ffffff', major: '#f7f0e0', motorway: '#eadfc6' },
     label: '#2a2f3a', halo: 'rgba(255,255,255,0.92)', waterLabel: '#3a73b5', roadLabel: '#4b5262', parkLabel: '#3e7b3b',
   },
 };

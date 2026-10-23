@@ -36,7 +36,7 @@ function buildStyle() {
       { id: 'bg', type: 'background', paint: { 'background-color': b.bg } },
       rl('sat'), rl('dark'), rl('light'),
       { id: 'hill', type: 'hillshade', source: 'dem', paint: { 'hillshade-exaggeration': b.hill.ex, 'hillshade-shadow-color': b.hill.shadow, 'hillshade-highlight-color': b.hill.hi, 'hillshade-accent-color': b.hill.accent } },
-      { id: 'route-base', type: 'line', source: 'route-full', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-opacity': 0.55, 'line-width': 3.5 * u } },
+      { id: 'route-base', type: 'line', source: 'route-full', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-opacity': 0.85, 'line-width': 5 * u } },
       { id: 'prog-glow', type: 'line', source: 'route-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': S.color, 'line-opacity': 0.4, 'line-blur': 7 * u, 'line-width': 18 * u } },
       { id: 'prog-casing', type: 'line', source: 'route-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#000000', 'line-opacity': 0.4, 'line-width': 10 * u } },
       { id: 'prog', type: 'line', source: 'route-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': S.color, 'line-width': 6.5 * u } },
@@ -126,7 +126,7 @@ export function applyLineStyle() {
   if (!styleUp()) return;
   const u = lineScale();
   applyVector();
-  R.map.setPaintProperty('route-base', 'line-width', 3.5 * u);
+  R.map.setPaintProperty('route-base', 'line-width', 5 * u);
   R.map.setPaintProperty('prog-glow', 'line-width', 18 * u); R.map.setPaintProperty('prog-glow', 'line-blur', 7 * u);
   R.map.setPaintProperty('prog-casing', 'line-width', 10 * u);
   R.map.setPaintProperty('prog', 'line-width', 6.5 * u); R.map.setPaintProperty('prog-seg', 'line-width', 6.5 * u);
