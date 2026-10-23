@@ -2,7 +2,7 @@ import * as C from './core.js';
 import { $, $$, hexToRgb } from './util.js';
 import { SPORTS } from './sport.js';
 import { PRESETS, SEGS, SWATCHES } from './config.js';
-import { adoptRaw, bindTrimDrag, enterTrimView, exitTrimView, onTrim } from './trim.js';
+import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, onTrim } from './trim.js';
 import { applyFrame, refresh, replan } from './frames.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
@@ -148,6 +148,7 @@ export function bindEvents() {
   });
   for (const id of ['trimStart', 'trimEnd']) $('#' + id).addEventListener('pointerdown', enterTrimView);
   $('#trimViewBtn').addEventListener('click', enterTrimView);
+  $('#trimAutoBtn').addEventListener('click', autoTrim);
   bindTrimDrag();
   $('#trimPreviewBtn').addEventListener('click', () => { if (S.trimView) { exitTrimView(false); applyFrame(0); setPlaying(true); } });
   $('#trimResetBtn').addEventListener('click', () => { S.trimStart = 0; S.trimEnd = 0; $('#trimStart')._sync(); $('#trimEnd')._sync(); onTrim(); });

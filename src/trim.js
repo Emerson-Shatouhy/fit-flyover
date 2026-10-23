@@ -8,6 +8,7 @@ import { composite } from './hud.js';
 import { segCoords } from './colour.js';
 import { FONT_NUM } from './config.js';
 import { setStatus, setTrack } from './activity.js';
+import { detectRace } from './autotrim.js';
 
 /* ------------------------------ trim ------------------------------ */
 let trimTimer = 0;
@@ -236,6 +237,23 @@ export function onTrim(moved) {
     $('#trimStart')._sync(); $('#trimEnd')._sync();
   }
   updateTrimNote(); scheduleTrimLive(); queueRetrim();
+}
+
+/* put the handles on the race: the hardest sustained effort in the file. Always a starting point, the handles still move after. */
+export function autoTrim() {
+  if (!R.raw || !R.fullTrack || S.exporting) return;
+  const sp = rawSpan(), note = $('#trimNote');
+  if (!sp.timed) { note.textContent = 'Auto-detect needs timestamps, and this file has none.'; return; }
+  const res = detectRace(R.raw.points);
+  if (res.confidence === 'none') { note.textContent = res.note; return; }
+  const T = sp.secs, step = Math.max(1, +$('#trimStart').step || 1), cap = Math.floor(T * 0.9), room = Math.floor(T * 0.95);
+  // snap outward to the slider step so the handle shows exactly what was kept
+  S.trimStart = Math.min(cap, Math.floor(res.start / step) * step);
+  S.trimEnd = Math.min(cap, Math.floor(Math.max(0, T - res.end) / step) * step);
+  if (S.trimStart + S.trimEnd > room) S.trimEnd = Math.max(0, room - S.trimStart);
+  $('#trimStart')._sync(); $('#trimEnd')._sync();
+  onTrim('trimStart');
+  if (res.note) note.textContent = res.note + ' ' + note.textContent;
 }
 
 /* the real trimmed track is rebuilt once the handles stop moving */
