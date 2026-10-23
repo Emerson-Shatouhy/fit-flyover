@@ -62,7 +62,6 @@ export function vectorSpecs(p, u, labels3d) {
     { grp: 'area', layer: { id: 'v-landuse-green', type: 'fill', source: SRC, 'source-layer': 'landuse', filter: inClass(['cemetery', 'pitch', 'playground', 'stadium', 'zoo', 'theme_park']), paint: { 'fill-color': p.park, 'fill-opacity': 0.9 } } },
     { grp: 'area', layer: { id: 'v-park', type: 'fill', source: SRC, 'source-layer': 'park', paint: { 'fill-color': p.park, 'fill-opacity': 0.9 } } },
     { grp: 'area', layer: { id: 'v-water', type: 'fill', source: SRC, 'source-layer': 'water', paint: { 'fill-color': p.water } } },
-    { grp: 'area', layer: { id: 'v-waterway', type: 'line', source: SRC, 'source-layer': 'waterway', filter: inClass(['river', 'canal', 'stream']), layout: { 'line-cap': 'round' }, paint: { 'line-color': p.waterway, 'line-width': grow([[10, 0.4], [14, 1.6], [18, 5]], u) } } },
     { grp: 'area', layer: { id: 'v-bld', type: 'fill', source: SRC, 'source-layer': 'building', minzoom: 13, paint: { 'fill-color': p.building, 'fill-outline-color': p.buildingEdge } } },
 
     line('v-path', 'transportation', roadFilter(['path', 'pedestrian']), p.path, W.path),
