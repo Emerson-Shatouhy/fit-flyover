@@ -13,14 +13,14 @@ export const PALETTES = {
   dark: {
     land: '#262d3c', civic: '#2d364b', park: '#1d4a3a', wood: '#1a4335', water: '#0c2174', waterway: '#16329a',
     building: '#333c50', buildingEdge: '#3c465c', extrusion: '#4a5570',
-    path: '#5d6882', rail: '#3f485c', casing: '#1a202e',
+    path: '#5d6882', rail: '#3f485c', casing: '#1a202e', bridgeCasing: '#0c111c',
     road: { minor: '#4b546a', secondary: '#5f6a84', major: '#7d88a2', motorway: '#9aa5bf' },
     label: '#e8edf7', halo: 'rgba(15,19,29,0.88)', waterLabel: '#7b90ff', roadLabel: '#d3dae9', parkLabel: '#86e3ae',
   },
   light: {
     land: '#f1ede4', civic: '#e9e4d8', park: '#cde5bd', wood: '#c1ddb1', water: '#a6cce9', waterway: '#8dbbe0',
     building: '#e1dccf', buildingEdge: '#d4cec1', extrusion: '#dcd6c9',
-    path: '#d3cdc0', rail: '#b9b4a9', casing: '#cdc7ba',
+    path: '#d3cdc0', rail: '#b9b4a9', casing: '#cdc7ba', bridgeCasing: '#8f897b',
     road: { minor: '#ffffff', secondary: '#ffffff', major: '#fff1cc', motorway: '#ffd88c' },
     label: '#2a2f3a', halo: 'rgba(255,255,255,0.92)', waterLabel: '#3a73b5', roadLabel: '#4b5262', parkLabel: '#3e7b3b',
   },
@@ -49,6 +49,7 @@ const FONT = { regular: ['Noto Sans Regular'], bold: ['Noto Sans Bold'], italic:
    lvl: which Labels setting shows it ('major' or 'full'); labels are hidden entirely at 'off'. */
 export function vectorSpecs(p, u, labels3d) {
   const line = (id, sl, filter, color, stops, extra) => ({ grp: 'top', layer: { id, type: 'line', source: SRC, 'source-layer': sl, filter, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: Object.assign({ 'line-color': color, 'line-width': grow(stops, u) }, extra || {}) } });
+  const bridgeCasing = (id, filter, stops) => ({ grp: 'top', layer: { id, type: 'line', source: SRC, 'source-layer': 'transportation', filter, layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': p.bridgeCasing, 'line-width': grow(stops, u, 1, 2.6) } } });
   const casing = (id, sl, filter, stops) => ({ grp: 'top', layer: { id, type: 'line', source: SRC, 'source-layer': sl, filter, layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': p.casing, 'line-width': grow(stops, u, 1, 1.6) } } });
   const text = (id, lvl, sl, filter, font, size, color, extra) => ({
     grp: 'top', lvl,
@@ -74,6 +75,12 @@ export function vectorSpecs(p, u, labels3d) {
     line('v-major', 'transportation', roadFilter(['primary', 'trunk']), p.road.major, W.major),
     casing('v-motorway-casing', 'transportation', roadFilter(['motorway']), W.motorway),
     line('v-motorway', 'transportation', roadFilter(['motorway']), p.road.motorway, W.motorway),
+
+    // bridges are drawn again on top of every other road, with a heavier outline so they read as decks over the water
+    ...[['minor', ['minor', 'service', 'track', 'path', 'pedestrian'], p.road.minor, W.minor], ['secondary', ['secondary', 'tertiary'], p.road.secondary, W.secondary], ['major', ['primary', 'trunk'], p.road.major, W.major], ['motorway', ['motorway'], p.road.motorway, W.motorway]].flatMap(([n, list, col, stops]) => {
+      const f = ['all', inClass(list), ['==', ['get', 'brunnel'], 'bridge']];
+      return [bridgeCasing('v-bridge-casing-' + n, f, stops), line('v-bridge-' + n, 'transportation', f, col, stops)];
+    }),
 
     { grp: 'top', b3d: true, layer: { id: 'v-bld3d', type: 'fill-extrusion', source: SRC, 'source-layer': 'building', minzoom: 13, layout: { visibility: labels3d ? 'visible' : 'none' },
       paint: { 'fill-extrusion-color': p.extrusion, 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.88 } } },
