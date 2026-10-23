@@ -3,7 +3,6 @@ import { BASEMAPS } from './config.js';
 import { setStatus } from './activity.js';
 import { composite } from './hud.js';
 import { colorKey } from './colour.js';
-import { lookFor, mixHex } from './lookcore.js';
 import { OFM, PALETTES, SRC, ensureVector, updateVector } from './vectorstyle.js';
 
 /* ------------------------------ map ------------------------------ */
@@ -111,31 +110,6 @@ export function applyBasemap() {
   R.map.setPaintProperty('bg', 'background-color', vec ? PALETTES[S.basemap].land : b.bg);
   R.map.setSky(b.sky);
   applyVector();
-  applyLook();
-}
-
-const DEFAULT_LIGHT = { anchor: 'viewport', color: '#ffffff', intensity: 0.5, position: [1.15, 210, 30] };
-
-/* lighting and weather for this activity: the sun where it was at the middle of the activity, and the weather at the start */
-export function applyLook() {
-  if (!styleUp()) return;
-  const t = S.track, b = BASEMAPS[S.basemap], timed = !!(t && t.meta.hasTime && t.meta.startTime != null);
-  const w = R.weather && R.fullTrack && R.weather.for === R.fullTrack ? R.weather.data : null;
-  const bb = t ? t.bounds : null;
-  const L = R.look = lookFor({
-    ms: S.sun && timed ? t.meta.startTime + (t.meta.totalTime || 0) * 500 : null, lat: bb ? (bb.s + bb.n) / 2 : 0, lng: bb ? (bb.w + bb.e) / 2 : 0,
-    code: S.wxfx && timed && w ? w.code : null,
-  });
-  R.map.setLight(L.light ? { anchor: 'map', color: L.light.color, intensity: L.light.intensity, position: [1.5, L.light.az, L.light.polar] } : DEFAULT_LIGHT);
-  // with the sun on, the light comes from a fixed compass direction; otherwise it stays fixed to the screen like before
-  R.map.setPaintProperty('hill', 'hillshade-illumination-anchor', L.hillAz == null ? 'viewport' : 'map');
-  R.map.setPaintProperty('hill', 'hillshade-illumination-direction', L.hillAz == null ? 335 : L.hillAz);
-  R.map.setPaintProperty('hill', 'hillshade-exaggeration', b.hill.ex * L.hillK);
-  const sky = Object.assign({}, b.sky);
-  const blend = (to, mix) => { if (!mix) return; sky['sky-color'] = mixHex(sky['sky-color'], to.sky, mix); sky['horizon-color'] = mixHex(sky['horizon-color'], to.horizon, mix); sky['fog-color'] = mixHex(sky['fog-color'], to.fog, mix); };
-  if (L.stage) blend(L.stage, L.stage.mix);
-  if (L.grey) blend(L.grey, L.grey.mix);
-  R.map.setSky(sky);
 }
 
 export function applyRouteColor() {

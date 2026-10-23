@@ -57,4 +57,4 @@ export function markerForUnits(val, units) {
 
 export const STORE_KEY ='route-flyover-settings-v1';
 
-export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'color2', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'sun', 'wxfx', 'temp', 'stats'];
+export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'color2', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'temp', 'stats'];
