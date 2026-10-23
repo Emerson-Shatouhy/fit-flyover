@@ -3,7 +3,7 @@ import { pickHour, weatherText } from './weathercore.js';
 
 /* The weather at the start of the activity, from Open-Meteo (free, no key). Only runs when the Weather chip is on. */
 /* what the card and HUD draw, or '' */
-export const weatherLine = () => (S.weather && R.weather && R.weather.for === R.fullTrack ? weatherText(R.weather.data, S.units) : '');
+export const weatherLine = () => (S.weather && R.weather && R.weather.for === R.fullTrack ? weatherText(R.weather.data, S.temp, S.units) : '');
 
 async function getJson(url) { const r = await fetch(url); if (!r.ok) throw new Error('weather ' + r.status); return r.json(); }
 

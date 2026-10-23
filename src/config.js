@@ -30,6 +30,7 @@ export const SEGS = {
   camera: [['chase', 'Chase'], ['orbit', 'Orbit'], ['overhead', 'Overhead']],
   units: [['mi', 'Imperial'], ['km', 'Metric']], // values stay 'mi'/'km' so saved settings keep working
   colorBy: [['solid', 'Solid'], ['hr', 'HR'], ['pwr', 'Power'], ['spd', 'Speed'], ['ele', 'Elev']],
+  temp: [['auto', 'Auto'], ['F', '°F'], ['C', '°C']],
   labels: [['off', 'Off'], ['major', 'Major'], ['full', 'Full']],
   graph: [['none', 'Off'], ['ele', 'Elev'], ['hr', 'HR'], ['pwr', 'Power']],
 };
@@ -56,4 +57,4 @@ export function markerForUnits(val, units) {
 
 export const STORE_KEY ='route-flyover-settings-v1';
 
-export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'stats'];
+export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'temp', 'stats'];

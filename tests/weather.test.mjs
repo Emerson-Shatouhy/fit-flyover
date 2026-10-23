@@ -13,8 +13,10 @@ test('picks the hour nearest the start in the place\'s local time', () => {
 });
 
 test('text follows the unit system', () => {
-  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'mi'), '51°F · OVERCAST');
-  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'km'), '10°C · OVERCAST');
-  assert.equal(weatherText(null, 'mi'), '');
+  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'auto', 'mi'), '51°F · OVERCAST');
+  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'auto', 'km'), '10°C · OVERCAST');
+  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'F', 'km'), '51°F · OVERCAST'); // metric distances, Fahrenheit
+  assert.equal(weatherText({ tempC: 10.4, code: 3 }, 'C', 'mi'), '10°C · OVERCAST');
+  assert.equal(weatherText(null, 'auto', 'mi'), '');
   assert.equal(codeText(63), 'Rain');
 });

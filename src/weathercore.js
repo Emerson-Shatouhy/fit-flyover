@@ -17,8 +17,10 @@ export function pickHour(json, startMs) {
   return tempC == null || code == null ? null : { tempC, code };
 }
 
-export function weatherText(w, units) {
+/* temp: 'F', 'C', or 'auto' (follow the distance units) */
+export function weatherText(w, temp, units) {
   if (!w) return '';
-  const t = units === 'mi' ? Math.round(w.tempC * 9 / 5 + 32) + '°F' : Math.round(w.tempC) + '°C';
+  const f = temp === 'F' || (temp !== 'C' && units === 'mi');
+  const t = f ? Math.round(w.tempC * 9 / 5 + 32) + '°F' : Math.round(w.tempC) + '°C';
   return (t + ' · ' + codeText(w.code)).toUpperCase();
 }
