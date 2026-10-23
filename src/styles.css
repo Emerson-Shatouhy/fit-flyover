@@ -97,7 +97,7 @@ button, input, select { font: inherit; color: inherit; }
 .photolist .pmeta b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .photolist .pmeta span { font-size: 12px; color: var(--muted); }
 .photolist .pmeta span.warn, .note.warn { color: #d97706; }
-.photolist input[type=range] { grid-column: 1 / -1; }
+.photolist input[type=range], .photolist input[type=text] { grid-column: 1 / -1; }
 .link { all: unset; cursor: pointer; font-size: 12px; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .link:focus-visible { outline: 2px solid var(--accent); }
 

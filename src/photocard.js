@@ -1,5 +1,6 @@
 import { S } from './state.js';
 import { rr } from './util.js';
+import { FONT_NUM } from './config.js';
 import { cardAlpha } from './photocore.js';
 import { photoSlots } from './photos.js';
 
@@ -28,7 +29,12 @@ export function drawPhotos(ctx, W, H) {
     if (iar > ar) { sw = img.height * ar; sx = (img.width - sw) / 2; } else { sh = img.width / ar; sy = (img.height - sh) / 2; }
     ctx.save(); ctx.beginPath(); ctx.rect(bx, by, pw, ph); ctx.clip();
     ctx.drawImage(img, sx, sy, sw, sh, bx, by, pw, ph); ctx.restore();
-    ctx.fillStyle = S.color2 || S.color; ctx.fillRect(-18 * u, ch / 2 - chin * 0.5 - 2.5 * u, 36 * u, 5 * u); // a small accent mark on the chin
+    const cap = (x.ph.caption || '').trim();
+    if (cap) { // the caption goes on the chin, shrunk to fit
+      let fs = chin * 0.48; ctx.font = '600 ' + fs + 'px ' + FONT_NUM;
+      while (fs > 10 * u && ctx.measureText(cap).width > pw) { fs -= 1; ctx.font = '600 ' + fs + 'px ' + FONT_NUM; }
+      ctx.fillStyle = '#1b2026'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(cap, 0, ch / 2 - chin * 0.5 + 1 * u);
+    } else { ctx.fillStyle = S.color2 || S.color; ctx.fillRect(-18 * u, ch / 2 - chin * 0.5 - 2.5 * u, 36 * u, 5 * u); } // no caption: a small accent mark
     ctx.restore();
   }
 }

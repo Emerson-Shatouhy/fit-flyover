@@ -30,7 +30,7 @@ export async function addPhotos(files) {
       const bmp = await createImageBitmap(f), k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
       const canvas = document.createElement('canvas'); canvas.width = Math.round(bmp.width * k); canvas.height = Math.round(bmp.height * k);
       canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height); bmp.close();
-      photos.push(Object.assign({ id: nextId++, name: f.name, canvas, manualP: null }, await readMeta(f)));
+      photos.push(Object.assign({ id: nextId++, name: f.name, canvas, manualP: null, caption: '' }, await readMeta(f)));
       res.added++;
     } catch (e) { res.failed.push(f.name); }
   }

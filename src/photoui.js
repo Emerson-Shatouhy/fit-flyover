@@ -39,6 +39,9 @@ export function renderPhotos() {
       r.addEventListener('input', () => { ph.manualP = r.value / 1000; const s2 = status(ph); span.textContent = s2.text; span.className = s2.warn ? 'warn' : ''; refresh(); });
       li.appendChild(r);
     }
+    const cap = document.createElement('input'); cap.type = 'text'; cap.maxLength = 40; cap.placeholder = 'Caption (optional)'; cap.value = ph.caption; cap.setAttribute('aria-label', 'Caption for ' + ph.name); cap.autocomplete = 'off';
+    cap.addEventListener('input', () => { ph.caption = cap.value; refresh(); });
+    li.appendChild(cap);
     list.appendChild(li);
   }
 }
