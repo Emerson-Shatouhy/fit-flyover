@@ -6,6 +6,7 @@ import { $, rr, spacing } from './util.js';
 import { LUT, colorAt, colorModel, legendInfo } from './colour.js';
 import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
+import { weatherLine } from './weather.js';
 
 const basemapCredit = () => { const b = BASEMAPS[S.basemap]; return b.vector && !R.vecFail ? b.vcredit : b.credit; };
 
@@ -118,6 +119,11 @@ function drawHud(ctx, W, H) {
     ctx.fillText(d, x0, ty + 44 * u);
   }
   let dateBase = ty + (t.meta.startTime ? 44 * u : 0);
+  const wx = weatherLine();
+  if (wx && t.meta.startTime) { // the weather sits right under the date
+    dateBase += 38 * u; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '600 ' + 24 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em');
+    ctx.fillText(wx, x0, dateBase);
+  }
   const sub = subtitleText();
   if (sub) { // the subtitle sits under the date; the legend below makes room for it
     dateBase += 40 * u; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; spacing(ctx, '0.06em');
@@ -244,6 +250,8 @@ function drawCard(ctx, W, H, a) {
     const d = new Date(t.meta.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
     ly += 46 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = S.color; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
     ctx.fillText(d, cx, ly);
+    const wx = weatherLine();
+    if (wx) { ly += 44 * u; ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 ' + 28 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }
   }
   spacing(ctx, '0px');
   ctx.restore();

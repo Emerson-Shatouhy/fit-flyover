@@ -4,6 +4,7 @@ import { SPORTS } from './sport.js';
 import { BASEMAPS, PRESETS, SEGS, SWATCHES, markerForUnits, markerOptions } from './config.js';
 import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, refreshTrimNote, resetTrim } from './trim.js';
 import { applyFrame, refresh, replan } from './frames.js';
+import { loadWeather } from './weather.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
 import { loadFile, setStatus, setTrack, updateActivityPanel } from './activity.js';
@@ -54,9 +55,9 @@ export function buildControls() {
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $('#subtitle').addEventListener('input', (e) => { S.subtitle = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
-  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d']]) {
+  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d'], ['weatherChk', 'weather']]) {
     const el = $('#' + id); el.checked = !!S[key];
-    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } refresh(); }); // the card changes the camera timing
+    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } if (key === 'weather' && el.checked) loadWeather().then(() => refresh()); refresh(); }); // the card changes the camera timing
   }
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });

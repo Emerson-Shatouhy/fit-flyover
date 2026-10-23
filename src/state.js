@@ -4,7 +4,7 @@ import { $ } from './util.js';
 /* ------------------------------ state ------------------------------ */
 export const S = {
   basemap: 'sat', labels: 'off', b3d: false, color: '#FF5A1F', camera: 'chase', aspect: '9:16', res: 720, duration: 30, pitch: 62, zoom: 0,
-  terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', subtitle: '', graph: 'ele', safe: true, credit: true, loop: true, cards: true,
+  terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', subtitle: '', graph: 'ele', safe: true, credit: true, loop: true, cards: true, weather: false,
   stats: { dist: true, time: true, pace: true, gain: true, hr: true, power: false },
 };
 
@@ -35,7 +35,7 @@ export let resolveMap = null;
 export const mapReady = new Promise((r) => { resolveMap = r; });
 
 /* mutable runtime references shared between modules */
-export const R = { map: null, plan: null, frame: null, trackId: 0, planId: 0, exportCancel: false, dragging: false, raw: null, fullTrack: null, mapFailed: null };
+export const R = { map: null, plan: null, frame: null, trackId: 0, planId: 0, exportCancel: false, dragging: false, raw: null, fullTrack: null, mapFailed: null, weather: null };
 
 export const dims = () => {
   const [a, b] = ASPECTS[S.aspect], r = S.res, ev = (x) => Math.round(x / 2) * 2;
