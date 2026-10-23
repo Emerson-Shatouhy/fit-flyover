@@ -231,15 +231,17 @@ function drawCard(ctx, W, H, a) {
 let hudLayer = null;
 
 function drawOverlays(W, H, card) {
-  if (card <= 0) { drawMarkers(vctx, W, H); drawHud(vctx, W, H); return; }
-  if (card < 1) {
+  // the card and the HUD take turns: the card is gone before the HUD starts to appear (and the reverse at the end), so their titles never overlap
+  const cardA = Math.min(1, Math.max(0, (card - 0.5) * 2)), hudA = Math.min(1, Math.max(0, (0.5 - card) * 2));
+  if (hudA >= 1) drawMarkers(vctx, W, H), drawHud(vctx, W, H);
+  else if (hudA > 0) {
     if (!hudLayer) hudLayer = document.createElement('canvas');
     if (hudLayer.width !== W || hudLayer.height !== H) { hudLayer.width = W; hudLayer.height = H; }
     const lc = hudLayer.getContext('2d'); lc.clearRect(0, 0, W, H);
     drawMarkers(lc, W, H); drawHud(lc, W, H);
-    vctx.save(); vctx.globalAlpha = 1 - card; vctx.drawImage(hudLayer, 0, 0); vctx.restore();
+    vctx.save(); vctx.globalAlpha = hudA; vctx.drawImage(hudLayer, 0, 0); vctx.restore();
   }
-  drawCard(vctx, W, H, card);
+  if (cardA > 0) drawCard(vctx, W, H, cardA);
 }
 
 export function composite() {
