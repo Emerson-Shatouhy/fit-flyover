@@ -23,7 +23,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .top { flex: none; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; font: 700 21px/1 var(--f-num); letter-spacing: .09em; text-transform: uppercase; }
-.brand .by { margin-left: 6px; font: 500 12px/1 var(--f-txt, inherit); letter-spacing: .04em; text-transform: none; color: var(--accent); }
+.brand .by { margin-left: 6px; font: 500 12px/1 var(--f-ui); letter-spacing: .04em; text-transform: none; color: var(--accent); }
 .brand svg { color: var(--accent); flex: none; }
 .top-right { display: flex; align-items: center; gap: 16px; min-width: 0; }
 .top-meta { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
