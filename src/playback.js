@@ -12,7 +12,8 @@ export function tick(ts) {
   if (!S.playing || S.exporting || !S.track || R.dragging) return;
   if (S.tau >= 1) {
     if (!S.loop) { setPlaying(false); return; }
-    if (!holdUntil) holdUntil = ts + 1300;
+    // with the card on, the last frame already is the first frame and the card is the pause, so loop straight away
+    if (!holdUntil) holdUntil = ts + (S.cards ? 0 : 1300);
     if (ts < holdUntil) return;
     holdUntil = 0; applyFrame(0); return;
   }

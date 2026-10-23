@@ -9,7 +9,7 @@ import { updateTransport } from './playback.js';
 export function replan() {
   if (!S.track) { R.plan = null; return; }
   const { W, H } = dims();
-  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration });
+  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration, cards: S.cards });
   R.planId++;
 }
 
@@ -21,10 +21,14 @@ export function applyFrame(tau) {
   const head = C.sampleTrack(S.track, cam.p);
   R.frame = { cam, head, p: cam.p };
   R.map.jumpTo({ center: cam.center, zoom: cam.zoom, bearing: cam.bearing, pitch: cam.pitch, padding: { top: cam.padTop, bottom: 0, left: 0, right: 0 } });
-  R.map.getSource('route-done').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: C.lineUpTo(S.track, cam.p * S.track.L) } });
+  // under the title card the route is shown finished and the head dot is hidden, so the first and last frames match
+  R.map.getSource('route-done').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: C.lineUpTo(S.track, cam.line * S.track.L) } });
   R.map.getSource('head').setData({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [head.lng, head.lat] } });
+  const vis = 1 - cam.card;
+  R.map.setPaintProperty('head', 'circle-opacity', vis); R.map.setPaintProperty('head', 'circle-stroke-opacity', vis);
+  R.map.setPaintProperty('head-halo', 'circle-opacity', 0.35 * vis);
   const cm = colorModel();
-  if (cm) { updateSegSource(cm, cam.p); R.map.setPaintProperty('head', 'circle-stroke-color', colorAt(cm, cam.p)); }
+  if (cm) { updateSegSource(cm, cam.line); R.map.setPaintProperty('head', 'circle-stroke-color', colorAt(cm, cam.p)); }
   updateTransport();
 }
 

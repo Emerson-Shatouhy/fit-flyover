@@ -495,9 +495,30 @@ const TIMELINE = {
   orbit: { p0: 0.04, p1: 0.96, intro: 0, outro: 1 },
 };
 
-function progressAt(style, tau) {
-  const T = TIMELINE[style] || TIMELINE.chase;
-  return easeProgress((tau - T.p0) / (T.p1 - T.p0));
+/* hold = share of the video (each end) spent sitting on the title card. The head only starts after it and is home before it returns. */
+function progressAt(style, tau, hold) {
+  const T = TIMELINE[style] || TIMELINE.chase, g = hold ? hold + CARD_FADE : 0; // run only between the card clearing and the card returning
+  const p0 = Math.max(T.p0, g), p1 = Math.min(T.p1, 1 - g);
+  return easeProgress((tau - p0) / (p1 - p0));
+}
+
+/* The intro and finish card. It is fully up on the first and last frame, which are the same picture (the whole route, title over it),
+   so a looping video has no seam. 1 = card showing, 0 = gone. */
+const CARD_FADE = 0.05;
+
+function cardAmount(plan, tau) {
+  const h = plan.hold; if (!h) return 0;
+  if (tau <= h || tau >= 1 - h) return 1;
+  if (tau < h + CARD_FADE) return 1 - smoother((tau - h) / CARD_FADE);
+  if (tau > 1 - h - CARD_FADE) return smoother((tau - (1 - h - CARD_FADE)) / CARD_FADE);
+  return 0;
+}
+
+/* how much of the route is drawn: the finished route sits under the card, then pulls back to the start as the card clears */
+function lineProgress(plan, tau, p) {
+  const h = plan.hold; if (!h) return p;
+  const retract = tau <= h ? 1 : tau < h + CARD_FADE ? 1 - smoother((tau - h) / CARD_FADE) : 0;
+  return Math.max(p, retract);
 }
 
 function localFrame(track) {
@@ -568,8 +589,9 @@ function planCamera(track, o) {
   const visibleActual = (WORLD_M * cosLat * 1080) / (512 * Math.pow(2, zRef + zoomOffset));
   const ovPitch = style === 'overhead' ? Math.min(pitch, 20) : clamp(pitch - 8, 0, 60);
   const whole = frameWholeRoute(track, W, H, ovPitch);
+  const hold = o.cards ? Math.min(0.09, 1.5 / duration) : 0; // about 1.5 s on the card at each end
   return {
-    style, track, W, H, pitch, zoomOffset, followZoom,
+    style, track, W, H, pitch, zoomOffset, followZoom, hold,
     heading: buildHeading(track, clamp(visibleActual * 0.7, 300, 10000)),
     overview: { center: whole.center, zoom: whole.zoom, bearing: whole.bearing, pitch: ovPitch },
     padTop: style === 'chase' ? 0.24 * H : style === 'overhead' ? 0.08 * H : 0,
@@ -577,11 +599,12 @@ function planCamera(track, o) {
 }
 
 function cameraAt(plan, tau) {
-  const { style, track } = plan, T = TIMELINE[style] || TIMELINE.chase;
-  const p = progressAt(style, tau);
-  const ov = plan.overview;
+  const { style, track } = plan, T = TIMELINE[style] || TIMELINE.chase, h = plan.hold || 0;
+  const p = progressAt(style, tau, h);
+  const ov = plan.overview, card = cardAmount(plan, tau), line = lineProgress(plan, tau, p);
   if (style === 'orbit') {
-    return { center: ov.center, zoom: ov.zoom + 0.35 + plan.zoomOffset * 0.6, bearing: norm360(ov.bearing + 150 * tau), pitch: plan.pitch, padTop: 0, p };
+    // a full turn, so the last frame lines up with the first and the loop is seamless
+    return { center: ov.center, zoom: ov.zoom + 0.35 + plan.zoomOffset * 0.6, bearing: norm360(ov.bearing + 360 * tau), pitch: plan.pitch, padTop: 0, p, card, line };
   }
   const head = sampleTrack(track, p);
   const follow = {
@@ -589,8 +612,10 @@ function cameraAt(plan, tau) {
     bearing: style === 'overhead' ? 0 : plan.heading(p),
   };
   let w = 0; // 1 = overview, 0 = follow
-  if (tau < T.intro) w = 1 - smoother(tau / T.intro);
-  else if (tau > T.outro) w = smoother((tau - T.outro) / (1 - T.outro));
+  // the overview is held while the card is up, then the camera dives in; on the way out it pulls back to the overview before the card returns
+  if (tau <= h) w = 1;
+  else if (tau < T.intro) w = 1 - smoother((tau - h) / (T.intro - h));
+  else if (tau > T.outro) w = smoother((tau - T.outro) / (1 - h - T.outro));
   const ovb = style === 'overhead' ? 0 : ov.bearing;
   return {
     center: [lerp(follow.center[0], ov.center[0], w), lerp(follow.center[1], ov.center[1], w)],
@@ -598,7 +623,7 @@ function cameraAt(plan, tau) {
     pitch: lerp(follow.pitch, ov.pitch, w),
     bearing: norm360(angleLerp(follow.bearing, ovb, w)),
     padTop: lerp(plan.padTop, 0, w),
-    p,
+    p, card, line,
   };
 }
 

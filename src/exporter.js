@@ -71,7 +71,7 @@ async function exportWebCodecs(base) {
   for (let i = 0; i < total; i++) {
     if (R.exportCancel) { try { enc.close(); } catch (e) { /* ignore */ } return null; }
     await waitVisible();
-    applyFrame(i / (total - 1));
+    applyFrame(i / (S.cards ? total : total - 1)); // with the card on, stopping one frame short keeps the loop from showing the first picture twice
     await settle();
     const f = new VideoFrame(view, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
     enc.encode(f, { keyFrame: i % (fps * 2) === 0 }); f.close();

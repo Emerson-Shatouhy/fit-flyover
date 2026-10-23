@@ -184,12 +184,62 @@ function drawHud(ctx, W, H) {
     });
   }
 
-  // credit line
-  if (S.credit) {
-    ctx.shadowBlur = 0; ctx.textAlign = 'right'; ctx.font = '500 ' + 16 * u + 'px ' + FONT_TXT; ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(BASEMAPS[S.basemap].credit + ' · ' + TERRAIN_CREDIT, W - 26 * u, H - 16 * u);
+  ctx.restore();
+}
+
+/* the map credit stays on screen the whole time, card or not */
+function drawCredit(ctx, W, H) {
+  if (!S.credit) return;
+  const u = Math.min(W, H) / 1080;
+  ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.font = '500 ' + 16 * u + 'px ' + FONT_TXT; ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText(BASEMAPS[S.basemap].credit + ' · ' + TERRAIN_CREDIT, W - 26 * u, H - 16 * u);
+  ctx.restore();
+}
+
+/* The intro / finish card: the title and date over the whole route. a = how much of it is showing (0..1). */
+function drawCard(ctx, W, H, a) {
+  const t = S.track; if (!t) return;
+  const u = Math.min(W, H) / 1080;
+  const safe = S.safe && Math.abs(W / H - 9 / 16) < 0.02, topInset = safe ? H * 0.085 : 46 * u;
+  const innerW = Math.min(W - 120 * u, 1500 * u), cx = W / 2;
+  ctx.save();
+  ctx.globalAlpha = a;
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.4);
+  g.addColorStop(0, 'rgba(0,0,0,0.66)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.4);
+  ctx.translate(0, (a - 1) * 18 * u); // rises a little as it fades in, drops as it fades out
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 16 * u;
+  const title = (S.title || t.meta.name || 'Route Flyover').toUpperCase();
+  let tfs = 124 * u;
+  ctx.font = '700 ' + tfs + 'px ' + FONT_NUM; spacing(ctx, '0.03em');
+  while (tfs > 54 * u && ctx.measureText(title).width > innerW) { tfs -= 2 * u; ctx.font = '700 ' + tfs + 'px ' + FONT_NUM; }
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  let y = topInset + tfs * 0.8;
+  ctx.fillText(title, cx, y);
+  spacing(ctx, '0px');
+  ctx.shadowBlur = 0; ctx.fillStyle = S.color;
+  y += 26 * u; rr(ctx, cx - 56 * u, y, 112 * u, 6 * u, 3 * u); ctx.fill();
+  if (t.meta.startTime) {
+    const d = new Date(t.meta.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+    ctx.shadowBlur = 12 * u; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
+    ctx.fillText(d, cx, y + 56 * u); spacing(ctx, '0px');
   }
   ctx.restore();
+}
+
+/* markers and the HUD are drawn on their own layer so they can fade out under the card */
+let hudLayer = null;
+
+function drawOverlays(W, H, card) {
+  if (card <= 0) { drawMarkers(vctx, W, H); drawHud(vctx, W, H); return; }
+  if (card < 1) {
+    if (!hudLayer) hudLayer = document.createElement('canvas');
+    if (hudLayer.width !== W || hudLayer.height !== H) { hudLayer.width = W; hudLayer.height = H; }
+    const lc = hudLayer.getContext('2d'); lc.clearRect(0, 0, W, H);
+    drawMarkers(lc, W, H); drawHud(lc, W, H);
+    vctx.save(); vctx.globalAlpha = 1 - card; vctx.drawImage(hudLayer, 0, 0); vctx.restore();
+  }
+  drawCard(vctx, W, H, card);
 }
 
 export function composite() {
@@ -197,6 +247,6 @@ export function composite() {
   vctx.fillStyle = '#0a0d10'; vctx.fillRect(0, 0, W, H);
   if (R.map) { const mc = R.map.getCanvas(); if (mc && mc.width > 0 && mc.height > 0) vctx.drawImage(mc, 0, 0, W, H); }
   if (S.trimView && S.track) drawTrimOverlay(vctx, W, H);
-  else { drawMarkers(vctx, W, H); drawHud(vctx, W, H); }
+  else if (S.track && R.frame) { drawOverlays(W, H, (R.frame.cam && R.frame.cam.card) || 0); drawCredit(vctx, W, H); }
   if (R.map) $('#tilesNote').hidden = !S.track || S.exporting || R.map.loaded();
 }

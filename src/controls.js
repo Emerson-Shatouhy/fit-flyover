@@ -53,9 +53,9 @@ export function buildControls() {
   $('#markerEvery').addEventListener('change', (e) => { S.markerEvery = e.target.value; save(); refresh(); });
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
-  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend']]) {
+  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards']]) {
     const el = $('#' + id); el.checked = !!S[key];
-    el.addEventListener('change', () => { S[key] = el.checked; save(); refresh(); });
+    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); refresh(); }); // the card changes the camera timing
   }
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });
