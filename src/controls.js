@@ -1,7 +1,7 @@
 import * as C from './core.js';
 import { $, $$, hexToRgb } from './util.js';
 import { SPORTS } from './sport.js';
-import { PRESETS, SEGS, SWATCHES, markerForUnits, markerOptions } from './config.js';
+import { BASEMAPS, PRESETS, SEGS, SWATCHES, markerForUnits, markerOptions } from './config.js';
 import { adoptRaw, autoTrim, bindTrimDrag, enterTrimView, exitTrimView, refreshTrimNote, resetTrim } from './trim.js';
 import { applyFrame, refresh, replan } from './frames.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
@@ -54,9 +54,9 @@ export function buildControls() {
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $('#subtitle').addEventListener('input', (e) => { S.subtitle = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
-  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards']]) {
+  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d']]) {
     const el = $('#' + id); el.checked = !!S[key];
-    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); refresh(); }); // the card changes the camera timing
+    el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } refresh(); }); // the card changes the camera timing
   }
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });
@@ -124,6 +124,7 @@ export function syncControls() {
   $('#customSwatch').classList.toggle('on', isCustom);
   if (/^#[0-9a-f]{6}$/i.test(S.color)) $('#customColor').value = S.color.toLowerCase();
   $('#sport').value = S.sport; syncMarkerOptions();
+  $('#vecFields').hidden = !BASEMAPS[S.basemap].vector; $('#b3dChk').checked = S.b3d;
   setAccent(S.color); updateAutoLen();
 }
 
@@ -131,7 +132,8 @@ function onSeg(key, val) {
   S[key] = val;
   if (key === 'camera') S.pitch = PRESETS[val].pitch;
   save(); syncControls();
-  if (key === 'basemap') applyBasemap();
+  if (key === 'basemap') { applyBasemap(); replan(); }
+  if (key === 'labels') applyBasemap();
   if (key === 'camera') replan();
   if (key === 'colorBy') applyRouteColor();
   if (key === 'units') { updateActivityPanel(); refreshTrimNote(); } // marker options already followed in syncControls

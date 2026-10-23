@@ -3,6 +3,7 @@ import { BASEMAPS } from './config.js';
 import { setStatus } from './activity.js';
 import { composite } from './hud.js';
 import { colorKey } from './colour.js';
+import { OFM, PALETTES, SRC, ensureVector, updateVector } from './vectorstyle.js';
 
 /* ------------------------------ map ------------------------------ */
 const EMPTY_LINE = { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
@@ -17,6 +18,7 @@ function buildStyle() {
   const rl = (id) => ({ id, type: 'raster', source: id, layout: { visibility: S.basemap === id ? 'visible' : 'none' }, paint: { 'raster-fade-duration': 0 } });
   return {
     version: 8,
+    glyphs: OFM.glyphs,
     sky: b.sky,
     terrain: { source: 'dem', exaggeration: S.terrain },
     sources: {
@@ -71,10 +73,14 @@ export async function initMap() {
   R.map.once('style.load', start);
   R.map.once('load', start);
   R.map.on('render', composite);
-  let errs = 0;
+  let errs = 0, vecErrs = 0;
+  R.map.on('sourcedata', (e) => { if (e.sourceId === SRC && e.isSourceLoaded) R.vecOk = true; });
+  // if the vector tiles never arrive, draw Dark and Light from the Esri rasters instead
+  const useFallback = () => { R.vecFail = true; applyBasemap(); setStatus('The vector map could not load, so Dark and Light are using the Esri map instead.', 'warn'); };
   R.map.on('error', (e) => {
     const msg = (e && e.error && e.error.message) || '';
     if (/abort/i.test(msg)) return;
+    if (e && e.sourceId === SRC) { vecErrs++; if (vecErrs >= 6 && !R.vecOk && !R.vecFail) useFallback(); return; }
     errs++;
     if (errs === 4) setStatus('Some map tiles failed to load. Check your connection; the video will have gaps there.', 'warn');
     console.warn('map error', e && e.error ? e.error : e);
@@ -83,16 +89,25 @@ export async function initMap() {
 
 export const styleUp = () => !!(R.map && R.map.style && R.map.getLayer('sat'));
 
+const vecOn = () => !!BASEMAPS[S.basemap].vector && !R.vecFail;
+
+function applyVector() {
+  const on = vecOn();
+  if (on) ensureVector(R.map, PALETTES[S.basemap], lineScale(), S.b3d);
+  updateVector(R.map, { p: PALETTES[S.basemap] || PALETTES.dark, u: lineScale(), on, labels: S.labels, b3d: S.b3d });
+}
+
 export function applyBasemap() {
   if (!styleUp()) return;
-  const b = BASEMAPS[S.basemap];
-  for (const id of ['sat', 'dark', 'light']) R.map.setLayoutProperty(id, 'visibility', id === S.basemap ? 'visible' : 'none');
+  const b = BASEMAPS[S.basemap], vec = vecOn();
+  for (const id of ['sat', 'dark', 'light']) R.map.setLayoutProperty(id, 'visibility', id === S.basemap && !vec ? 'visible' : 'none');
   R.map.setPaintProperty('hill', 'hillshade-exaggeration', b.hill.ex);
   R.map.setPaintProperty('hill', 'hillshade-shadow-color', b.hill.shadow);
   R.map.setPaintProperty('hill', 'hillshade-highlight-color', b.hill.hi);
   R.map.setPaintProperty('hill', 'hillshade-accent-color', b.hill.accent);
-  R.map.setPaintProperty('bg', 'background-color', b.bg);
+  R.map.setPaintProperty('bg', 'background-color', vec ? PALETTES[S.basemap].land : b.bg);
   R.map.setSky(b.sky);
+  applyVector();
 }
 
 export function applyRouteColor() {
@@ -110,6 +125,7 @@ export function applyRouteColor() {
 export function applyLineStyle() {
   if (!styleUp()) return;
   const u = lineScale();
+  applyVector();
   R.map.setPaintProperty('route-base', 'line-width', 3.5 * u);
   R.map.setPaintProperty('prog-glow', 'line-width', 18 * u); R.map.setPaintProperty('prog-glow', 'line-blur', 7 * u);
   R.map.setPaintProperty('prog-casing', 'line-width', 10 * u);

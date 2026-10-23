@@ -9,7 +9,7 @@ import { updateTransport } from './playback.js';
 export function replan() {
   if (!S.track) { R.plan = null; return; }
   const { W, H } = dims();
-  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration, cards: S.cards });
+  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration, cards: S.cards, buildings: S.b3d && S.basemap !== 'sat' });
   R.planId++;
 }
 

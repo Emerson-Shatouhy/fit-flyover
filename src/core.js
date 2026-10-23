@@ -585,7 +585,8 @@ function planCamera(track, o) {
   const v = track.L / (duration * (T.p1 - T.p0));
   const visibleM = Math.max(1100, 4.5 * v);
   const zRef = clamp(Math.log2((WORLD_M * cosLat * 1080) / (512 * visibleM)), 9.6, 15.6);
-  const followZoom = zRef + zoomOffset + Math.log2(short / 1080);
+  let followZoom = zRef + zoomOffset + Math.log2(short / 1080);
+  if (o.buildings) followZoom = Math.max(followZoom, 14.3 + Math.log2(short / 1080)); // 3D buildings only exist from about zoom 13
   const visibleActual = (WORLD_M * cosLat * 1080) / (512 * Math.pow(2, zRef + zoomOffset));
   const ovPitch = style === 'overhead' ? Math.min(pitch, 20) : clamp(pitch - 8, 0, 60);
   const whole = frameWholeRoute(track, W, H, ovPitch);

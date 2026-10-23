@@ -7,6 +7,8 @@ import { LUT, colorAt, colorModel, legendInfo } from './colour.js';
 import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
 
+const basemapCredit = () => { const b = BASEMAPS[S.basemap]; return b.vector && !R.vecFail ? b.vcredit : b.credit; };
+
 let layoutCache = { key: '', fs: 0, labelFs: 0 };
 
 /* picks one value size and one label size so every column fits, using the widest values seen along the route */
@@ -205,7 +207,7 @@ function drawCredit(ctx, W, H) {
   if (!S.credit) return;
   const u = Math.min(W, H) / 1080;
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.font = '500 ' + 16 * u + 'px ' + FONT_TXT; ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText(BASEMAPS[S.basemap].credit + ' · ' + TERRAIN_CREDIT, W - 26 * u, H - 16 * u);
+  ctx.fillText(basemapCredit() + ' · ' + TERRAIN_CREDIT, W - 26 * u, H - 16 * u);
   ctx.restore();
 }
 
