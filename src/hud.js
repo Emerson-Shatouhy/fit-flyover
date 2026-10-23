@@ -121,7 +121,7 @@ function drawHud(ctx, W, H) {
   let dateBase = ty + (t.meta.startTime ? 44 * u : 0);
   const wx = weatherLine();
   if (wx && t.meta.startTime) { // the weather sits right under the date
-    dateBase += 46 * u; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 ' + 34 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em');
+    dateBase += 40 * u; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 ' + 28 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em');
     ctx.fillText(wx, x0, dateBase);
   }
   const sub = subtitleText();
@@ -251,7 +251,7 @@ function drawCard(ctx, W, H, a) {
     ly += 46 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = S.color; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
     ctx.fillText(d, cx, ly);
     const wx = weatherLine();
-    if (wx) { ly += 56 * u; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '600 ' + 42 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }
+    if (wx) { ly += 48 * u; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '600 ' + 34 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }
   }
   spacing(ctx, '0px');
   ctx.restore();
