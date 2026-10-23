@@ -4,7 +4,7 @@ import { $ } from './util.js';
 /* ------------------------------ state ------------------------------ */
 export const S = {
   basemap: 'sat', color: '#FF5A1F', camera: 'chase', aspect: '9:16', res: 720, duration: 30, pitch: 62, zoom: 0,
-  terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', graph: 'ele', safe: true, credit: true, loop: true, cards: true,
+  terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', subtitle: '', graph: 'ele', safe: true, credit: true, loop: true, cards: true,
   stats: { dist: true, time: true, pace: true, gain: true, hr: true, power: false },
 };
 

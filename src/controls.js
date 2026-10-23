@@ -52,6 +52,7 @@ export function buildControls() {
   $('#sport').addEventListener('change', (e) => { S.sport = e.target.value; save(); syncControls(); updateActivityPanel(); refresh(); });
   $('#markerEvery').addEventListener('change', (e) => { S.markerEvery = e.target.value; save(); refresh(); });
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
+  $('#subtitle').addEventListener('input', (e) => { S.subtitle = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
   for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards']]) {
     const el = $('#' + id); el.checked = !!S[key];

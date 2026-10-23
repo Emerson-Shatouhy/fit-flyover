@@ -63,6 +63,14 @@ function graphSeries(kind, n) {
   return serCache;
 }
 
+const subtitleText = () => (S.subtitle || '').trim().toUpperCase();
+
+/* sets the font to the largest size at or below `size` (down to `min`) that fits `maxW`; letter spacing must already be set */
+function fitFont(ctx, text, weight, size, min, maxW) {
+  let f = size; ctx.font = weight + ' ' + f + 'px ' + FONT_NUM;
+  while (f > min && ctx.measureText(text).width > maxW) { f -= 1; ctx.font = weight + ' ' + f + 'px ' + FONT_NUM; }
+}
+
 function drawHud(ctx, W, H) {
   const t = S.track;
   if (!t || !R.frame) return;
@@ -107,10 +115,15 @@ function drawHud(ctx, W, H) {
     ctx.font = '600 ' + 30 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = S.color;
     ctx.fillText(d, x0, ty + 44 * u);
   }
+  let dateBase = ty + (t.meta.startTime ? 44 * u : 0);
+  const sub = subtitleText();
+  if (sub) { // the subtitle sits under the date; the legend below makes room for it
+    dateBase += 40 * u; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; spacing(ctx, '0.06em');
+    fitFont(ctx, sub, 600, 30 * u, 18 * u, innerW); ctx.fillText(sub, x0, dateBase);
+  }
   spacing(ctx, '0px');
 
   // colour legend
-  const dateBase = ty + (t.meta.startTime ? 44 * u : 0);
   if (cm && S.legend) {
     const li = legendInfo(cm), ly = dateBase + 42 * u, bw = Math.min(300 * u, innerW * 0.45), bh = 12 * u;
     ctx.shadowBlur = 0;
@@ -219,11 +232,18 @@ function drawCard(ctx, W, H, a) {
   spacing(ctx, '0px');
   ctx.shadowBlur = 0; ctx.fillStyle = S.color;
   y += 26 * u; rr(ctx, cx - 56 * u, y, 112 * u, 6 * u, 3 * u); ctx.fill();
+  let ly = y + 6 * u;
+  const sub = subtitleText();
+  if (sub) { // under the rule, in white, with the date after it
+    ly += 50 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = 'rgba(255,255,255,0.95)'; spacing(ctx, '0.08em');
+    fitFont(ctx, sub, 600, 46 * u, 24 * u, innerW); ctx.fillText(sub, cx, ly); ly += 6 * u;
+  }
   if (t.meta.startTime) {
     const d = new Date(t.meta.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-    ctx.shadowBlur = 12 * u; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
-    ctx.fillText(d, cx, y + 56 * u); spacing(ctx, '0px');
+    ly += 46 * u; ctx.shadowBlur = 12 * u; ctx.fillStyle = S.color; ctx.font = '600 ' + 38 * u + 'px ' + FONT_NUM; spacing(ctx, '0.16em');
+    ctx.fillText(d, cx, ly);
   }
+  spacing(ctx, '0px');
   ctx.restore();
 }
 

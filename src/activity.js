@@ -45,7 +45,7 @@ export async function setTrack(track, opts) {
   await mapReady;
   S.track = track; R.trackId++;
   if (!opts.retrim) { R.fullTrack = track; S.trimView = false; }
-  if (!opts.retrim) { S.duration = C.suggestDuration(track.L); S.title = track.meta.name || ''; $('#title').value = S.title; }
+  if (!opts.retrim) { S.duration = C.suggestDuration(track.L); S.title = track.meta.name || ''; $('#title').value = S.title; S.subtitle = ''; $('#subtitle').value = ''; }
   $('#drop').hidden = true; view.hidden = false;
   for (const id of ['playBtn', 'scrub', 'exportBtn']) $('#' + id).disabled = false;
   $('#replaceBtn').hidden = false;
