@@ -73,6 +73,20 @@
       </section>
 
       <section class="pane" id="paneStyle" role="tabpanel" aria-labelledby="tabStyle" hidden>
+        <div class="field"><div class="lab">Mode</div><div class="seg" data-seg="mode" role="radiogroup" aria-label="Mode"></div></div>
+        <div class="field" id="raceFields" hidden>
+          <p class="note">Race cut skims the steady stretches and slows down for the shift, the finish and the big moments. Best at 15 to 45 s.</p>
+          <p class="note" id="raceNote" style="margin-top:6px"></p>
+          <div class="lab" style="margin-top:12px"><label for="edit">Edit intensity</label><output id="editOut">80%</output></div>
+          <input type="range" id="edit" min="0" max="100" step="5">
+          <div class="lab" style="margin-top:12px">Quick length</div>
+          <div class="btnrow"><button class="btn" type="button" data-len="15">15 s</button><button class="btn" type="button" data-len="30">30 s</button><button class="btn" type="button" data-len="45">45 s</button></div>
+          <div class="grid2" style="margin-top:12px">
+            <div class="field"><div class="lab"><label for="official">Finish time</label></div><input type="text" id="official" maxlength="8" placeholder="1:47:30" autocomplete="off"></div>
+            <div class="field"><div class="lab"><label for="goal">Goal time</label></div><input type="text" id="goal" maxlength="8" placeholder="2:00:00" autocomplete="off"></div>
+          </div>
+          <div class="chips" style="margin-top:8px"><label class="chip"><input type="checkbox" id="prChk"><span>PR badge on the card</span></label></div>
+        </div>
         <div class="field"><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
         <div class="field" id="vecFields" hidden>
           <div class="lab">Labels</div><div class="seg" data-seg="labels" role="radiogroup" aria-label="Map labels"></div>

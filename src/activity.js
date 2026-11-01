@@ -9,6 +9,7 @@ import { setPlaying } from './playback.js';
 import { loadWeather } from './weather.js';
 import { renderPhotos, resetPhotos } from './photoui.js';
 import { SPORT_NAME, paceOrSpeed } from './sport.js';
+import { suggestRaceDuration } from './racecut.js';
 
 /* ------------------------------ loading ------------------------------ */
 export function setStatus(msg, kind) {
@@ -47,14 +48,14 @@ export async function setTrack(track, opts) {
   await mapReady;
   S.track = track; R.trackId++;
   if (!opts.retrim) { R.fullTrack = track; S.trimView = false; }
-  if (!opts.retrim) { S.duration = C.suggestDuration(track.L); S.title = track.meta.name || ''; $('#title').value = S.title; S.subtitle = ''; $('#subtitle').value = ''; }
+  if (!opts.retrim) { S.duration = S.mode === 'race' ? suggestRaceDuration(track.L) : C.suggestDuration(track.L); S.title = track.meta.name || ''; $('#title').value = S.title; S.subtitle = ''; $('#subtitle').value = ''; }
   $('#drop').hidden = true; view.hidden = false;
   for (const id of ['playBtn', 'scrub', 'exportBtn']) $('#' + id).disabled = false;
   $('#replaceBtn').hidden = false;
   for (const [k, has] of [['hr', track.meta.hasHr], ['power', track.meta.hasPower], ['gain', track.meta.hasEle], ['time', track.meta.hasTime], ['pace', track.meta.hasTime || track.grid.spd]]) {
     const el = $('[data-stat="' + k + '"]'); el.disabled = !has;
   }
-  for (const [v, has] of [['ele', track.meta.hasEle], ['hr', track.meta.hasHr], ['pwr', track.meta.hasPower]]) { const b = $('[data-seg="graph"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
+  for (const [v, has] of [['ele', track.meta.hasEle], ['spd', !!track.grid.spd], ['hr', track.meta.hasHr], ['pwr', track.meta.hasPower]]) { const b = $('[data-seg="graph"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
   for (const [v, has] of [['hr', track.meta.hasHr], ['pwr', track.meta.hasPower], ['spd', !!track.grid.spd], ['ele', track.meta.hasEle]]) { const b = $('[data-seg="colorBy"] [data-val="' + v + '"]'); if (b) b.disabled = !has; }
   if (!opts.retrim) resetPhotos();
   $('#weatherChk').disabled = !track.meta.hasTime;

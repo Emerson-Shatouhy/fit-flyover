@@ -10,7 +10,7 @@ import { FONT_NUM, MI_M as MI } from './config.js';
 let mkCache = { key: '' };
 
 /* markers at a sport-appropriate spacing: each mile or km, every 500 m rowing, every 100 m swimming, or whatever "Marker every" says */
-function markerInterval() {
+export function markerInterval() {
   if (S.markerEvery !== 'auto') return +S.markerEvery;
   const sp = effSport();
   if (sp === 'rowing' || sp === 'paddling') return 500;

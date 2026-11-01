@@ -11,6 +11,7 @@ import { R, S, dims, host, save, view } from './state.js';
 import { loadFile, setStatus, setTrack, updateActivityPanel } from './activity.js';
 import { setPlaying } from './playback.js';
 import { exportVideo } from './exporter.js';
+import { suggestRaceDuration } from './racecut.js';
 
 function setAccent(hex) {
   const [r, g, b] = hexToRgb(hex), root = document.documentElement.style;
@@ -33,6 +34,7 @@ export function buildControls() {
   buildSwatches('#swatches2', 'customColor2', onColor2, true);
 
   bindRange('duration', 'duration', (v) => v + ' s', () => { replan(); refresh(); updateAutoLen(); });
+  bindRange('edit', 'edit', (v) => v + '%', () => { replan(); refresh(); });
   bindRange('pitch', 'pitch', (v) => v + '°', () => { replan(); refresh(); });
   bindRange('zoom', 'zoom', (v) => (v > 0 ? '+' : '') + v.toFixed(1), () => { replan(); refresh(); });
   bindRange('terrain', 'terrain', (v) => v.toFixed(1) + '×', () => { if (styleUp()) R.map.setTerrain({ source: 'dem', exaggeration: S.terrain }); refresh(); });
@@ -46,13 +48,18 @@ export function buildControls() {
   $('#title').addEventListener('input', (e) => { S.title = e.target.value; refresh(); });
   $('#subtitle').addEventListener('input', (e) => { S.subtitle = e.target.value; refresh(); });
   $$('[data-stat]').forEach((el) => { el.checked = !!S.stats[el.dataset.stat]; el.addEventListener('change', () => { S.stats[el.dataset.stat] = el.checked; save(); refresh(); }); });
-  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d'], ['weatherChk', 'weather']]) {
+  for (const [id, key] of [['creditChk', 'credit'], ['safeChk', 'safe'], ['markersChk', 'markers'], ['calloutsChk', 'callouts'], ['legendChk', 'legend'], ['cardsChk', 'cards'], ['b3dChk', 'b3d'], ['weatherChk', 'weather'], ['prChk', 'pr']]) {
     const el = $('#' + id); el.checked = !!S[key];
     el.addEventListener('change', () => { S[key] = el.checked; save(); if (key === 'cards') replan(); if (key === 'b3d') { applyBasemap(); replan(); } if (key === 'weather' && el.checked) loadWeather().then(() => refresh()); refresh(); }); // the card changes the camera timing
   }
   $('#loopChk').checked = S.loop;
   $('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; save(); });
-  $('#autoLen').addEventListener('click', () => { S.duration = C.suggestDuration(S.track.L); syncControls(); replan(); refresh(); });
+  $('#autoLen').addEventListener('click', () => { S.duration = suggestLen(); syncControls(); replan(); refresh(); });
+  $$('[data-len]').forEach((b) => b.addEventListener('click', () => { S.duration = +b.dataset.len; save(); syncControls(); replan(); refresh(); }));
+  for (const [id, key] of [['goal', 'goal'], ['official', 'official']]) {
+    $('#' + id).value = S[key];
+    $('#' + id).addEventListener('input', (e) => { S[key] = e.target.value; save(); refresh(); });
+  }
   buildTabs();
   syncControls();
 }
@@ -126,21 +133,35 @@ function bindRange(id, key, fmt, onInput) {
   el._sync = sync; sync();
 }
 
+/* the length that suits this route in the current mode: a race cut is shorter and punchier than a classic flyover */
+const suggestLen = () => (S.mode === 'race' ? suggestRaceDuration(S.track.L) : C.suggestDuration(S.track.L));
+
 function updateAutoLen() {
   const b = $('#autoLen');
   if (!S.track) { b.hidden = true; return; }
-  const s = C.suggestDuration(S.track.L);
+  const s = suggestLen();
   b.hidden = s === S.duration; b.textContent = 'use ' + s + ' s';
 }
 
 export function syncControls() {
-  for (const id of ['duration', 'pitch', 'zoom', 'terrain']) $('#' + id)._sync();
+  for (const id of ['duration', 'edit', 'pitch', 'zoom', 'terrain']) $('#' + id)._sync();
+  $('#raceFields').hidden = S.mode !== 'race';
   $$('[data-seg]').forEach((el) => $$('button', el).forEach((b) => b.setAttribute('aria-checked', String(S[el.dataset.seg] === b.dataset.val))));
   syncSwatches('#swatches', 'customColor', S.color);
   syncSwatches('#swatches2', 'customColor2', S.color2);
   $('#sport').value = S.sport; syncMarkerOptions();
   $('#vecFields').hidden = !BASEMAPS[S.basemap].vector; $('#b3dChk').checked = S.b3d;
   setAccent(S.color); updateAutoLen();
+}
+
+/* Race cut pairs with the Pace graph; leaving it puts the elevation graph back if that is the swap this made */
+let graphSwapped = false;
+
+function onMode() {
+  if (S.mode === 'race' && S.graph === 'ele' && S.track && S.track.grid.spd) { S.graph = 'spd'; graphSwapped = true; }
+  else if (S.mode !== 'race' && graphSwapped) { if (S.graph === 'spd') S.graph = 'ele'; graphSwapped = false; }
+  if (S.track) S.duration = suggestLen();
+  save(); syncControls(); replan();
 }
 
 function onSeg(key, val) {
@@ -151,6 +172,7 @@ function onSeg(key, val) {
   if (key === 'labels') applyBasemap();
   if (key === 'camera') replan();
   if (key === 'colorBy') applyRouteColor();
+  if (key === 'mode') onMode();
   if (key === 'units') { updateActivityPanel(); refreshTrimNote(); } // marker options already followed in syncControls
   refresh();
 }
