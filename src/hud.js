@@ -2,7 +2,8 @@ import * as C from './core.js';
 import { R, S, vctx, view } from './state.js';
 import { paceOrSpeed, statItems } from './sport.js';
 import { BASEMAPS, FONT_NUM, FONT_TXT, TERRAIN_CREDIT } from './config.js';
-import { $, rr, spacing } from './util.js';
+import { $, inkOn, rr, spacing } from './util.js';
+import { parseClock } from './racecut.js';
 import { LUT, colorAt, colorModel, legendInfo } from './colour.js';
 import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
@@ -35,10 +36,10 @@ function statLayout(ctx, items, u, colW) {
   return layoutCache;
 }
 
-const GRAPH_META = { ele: { label: 'ELEVATION', unit: '' }, hr: { label: 'HEART RATE', unit: ' bpm' }, pwr: { label: 'POWER', unit: ' W' } };
+const GRAPH_META = { ele: { label: 'ELEVATION', unit: '' }, spd: { label: 'PACE', unit: '' }, hr: { label: 'HEART RATE', unit: ' bpm' }, pwr: { label: 'POWER', unit: ' W' } };
 
 function graphKey() {
-  const m = S.track.meta, ok = { ele: m.hasEle, hr: m.hasHr, pwr: m.hasPower };
+  const m = S.track.meta, ok = { ele: m.hasEle, spd: !!S.track.grid.spd, hr: m.hasHr, pwr: m.hasPower };
   if (S.graph === 'none') return 'none';
   return ok[S.graph] ? S.graph : (m.hasEle ? 'ele' : 'none');
 }
@@ -52,7 +53,7 @@ function graphSeries(kind, n) {
   const src = S.track.grid[kind], M = S.track.M, arr = new Float64Array(n);
   const pre = new Float64Array(M + 1);
   for (let k = 0; k < M; k++) pre[k + 1] = pre[k] + src[k];
-  const w = kind === 'ele' ? 0 : Math.max(1, (M / n) * (kind === 'pwr' ? 2.5 : 1.5));
+  const w = kind === 'ele' ? 0 : Math.max(1, (M / n) * (kind === 'pwr' ? 2.5 : kind === 'spd' ? 3 : 1.5));
   let mn = Infinity, mx = -Infinity;
   for (let i = 0; i < n; i++) {
     const c = (i * (M - 1)) / (n - 1), a = Math.max(0, Math.round(c - w)), b = Math.min(M - 1, Math.round(c + w));
@@ -62,7 +63,7 @@ function graphSeries(kind, n) {
   let lo, hi;
   if (kind === 'ele') { lo = S.track.meta.eleMin; hi = S.track.meta.eleMax; const mid = (lo + hi) / 2, half = Math.max(hi - lo, 30) / 2 * 1.12; lo = mid - half; hi = mid + half; }
   else if (kind === 'pwr') { lo = 0; hi = Math.max(mx * 1.1, 100); }
-  else { const span = Math.max(mx - mn, 20), pad = span * 0.12, mid = (mx + mn) / 2; lo = mid - span / 2 - pad; hi = mid + span / 2 + pad; }
+  else { const span = Math.max(mx - mn, kind === 'spd' ? 0.5 : 20), pad = span * 0.12, mid = (mx + mn) / 2; lo = mid - span / 2 - pad; hi = mid + span / 2 + pad; } // heart rate needs 20 bpm of room, pace 0.5 m/s
   serCache = { key, arr, lo, hi, mn, mx };
   return serCache;
 }
@@ -184,9 +185,10 @@ function drawHud(ctx, W, H) {
     if (gk !== 'ele') {
       const gm = GRAPH_META[gk];
       ctx.font = '600 ' + 22 * u + 'px ' + FONT_NUM; spacing(ctx, '0.14em'); ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.textAlign = 'left'; ctx.fillText(gm.label, x0, profTop - 12 * u);
+      ctx.textAlign = 'left'; ctx.fillText(gk === 'spd' ? paceOrSpeed(1).label.toUpperCase() : gm.label, x0, profTop - 12 * u);
       spacing(ctx, '0px'); ctx.textAlign = 'right';
-      ctx.fillText(Math.round(ser.mn) + ' to ' + Math.round(ser.mx) + gm.unit, x0 + innerW, profTop - 12 * u);
+      if (gk === 'spd') { const slow = paceOrSpeed(ser.mn), fast = paceOrSpeed(ser.mx); ctx.fillText((slow.value === fast.value ? fast.value : slow.value + ' to ' + fast.value) + ' ' + fast.unit, x0 + innerW, profTop - 12 * u); }
+      else ctx.fillText(Math.round(ser.mn) + ' to ' + Math.round(ser.mx) + gm.unit, x0 + innerW, profTop - 12 * u);
       ctx.textAlign = 'left';
     }
     ctx.shadowBlur = 12 * u;
@@ -259,10 +261,23 @@ function drawCard(ctx, W, H, a) {
     const wx = weatherLine();
     if (wx) { ly += 48 * u; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '600 ' + 34 * u + 'px ' + FONT_NUM; spacing(ctx, '0.12em'); ctx.fillText(wx, cx, ly); }
   }
-  // the totals along the bottom: distance and average pace (or speed), the same on the intro and the finish
+  // Race cut: a "NEW PR" badge under the date
+  const race = S.mode === 'race';
+  if (race && S.pr) {
+    const label = 'NEW PR', pfs = 34 * u;
+    ly += 78 * u; ctx.shadowBlur = 0; ctx.font = '700 ' + pfs + 'px ' + FONT_NUM; spacing(ctx, '0.2em');
+    const pw = ctx.measureText(label).width + 72 * u, ph = 60 * u;
+    ctx.fillStyle = accent2(); rr(ctx, cx - pw / 2, ly - ph * 0.7, pw, ph, ph / 2); ctx.fill();
+    ctx.fillStyle = inkOn(accent2()); ctx.textAlign = 'center'; ctx.fillText(label, cx + 0.1 * pfs, ly + pfs * 0.02); spacing(ctx, '0px');
+  }
+  // the totals along the bottom: distance and average pace (or speed), the same on the intro and the finish.
+  // Race cut adds the finish time (an official time you typed wins over the watch) and works the pace out from it.
   const m = t.meta, u2 = S.units, cols = [{ label: 'DISTANCE', value: C.fmtDistance(m.totalDist, u2), unit: C.distUnit(u2) }];
-  if (m.avgSpeed) { const po = paceOrSpeed(m.avgSpeed); cols.push({ label: 'AVG ' + po.label.toUpperCase(), value: po.value, unit: po.unit }); }
-  const vfs = 84 * u, ufs = vfs * 0.4, lfs = 26 * u, base = H - (safe ? H * 0.17 : 70 * u), colW = Math.min(innerW / 2, 420 * u);
+  const official = race ? parseClock(S.official) : null, finish = official || (race ? m.totalTime : null);
+  if (race && finish) cols.push({ label: 'TIME', value: C.fmtDuration(finish), unit: '' });
+  const avgSpd = official && m.totalDist > 0 ? m.totalDist / official : m.avgSpeed;
+  if (avgSpd) { const po = paceOrSpeed(avgSpd); cols.push({ label: 'AVG ' + po.label.toUpperCase(), value: po.value, unit: po.unit }); }
+  const vfs = (cols.length > 2 ? 72 : 84) * u, ufs = vfs * 0.4, lfs = 26 * u, base = H - (safe ? H * 0.17 : 70 * u), colW = Math.min(innerW / Math.max(2, cols.length), 420 * u);
   ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 14 * u; ctx.textBaseline = 'alphabetic';
   cols.forEach((c, i) => {
     const x = cx + (i - (cols.length - 1) / 2) * colW;
@@ -273,9 +288,62 @@ function drawCard(ctx, W, H, a) {
     ctx.textAlign = 'left'; ctx.font = '700 ' + vfs + 'px ' + FONT_NUM; ctx.fillStyle = '#fff'; ctx.fillText(c.value, x - tot / 2, base);
     ctx.font = '500 ' + ufs + 'px ' + FONT_NUM; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(c.unit, x - tot / 2 + vw + ufs * 0.15, base);
   });
-  if (cols.length > 1) { ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(cx - 1 * u, base - vfs * 0.9, 2 * u, vfs * 0.9 + 6 * u); }
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  for (let i = 1; i < cols.length; i++) ctx.fillRect(cx + (i - cols.length / 2) * colW - 1 * u, base - vfs * 0.9, 2 * u, vfs * 0.9 + 6 * u);
   spacing(ctx, '0px');
   ctx.restore();
+}
+
+/* ------------------------------ Race cut banners ------------------------------ */
+const mdist = (m) => C.fmtDistance(m, S.units) + ' ' + C.distUnit(S.units).toUpperCase();
+
+/* the words for a moment: a big title and a line of numbers under it */
+function momentText(m) {
+  const to = m.to ? paceOrSpeed(m.to) : null, from = m.from ? paceOrSpeed(m.from) : null;
+  switch (m.kind) {
+    case 'shift': return { title: 'THE SHIFT', sub: from.value + ' → ' + to.value + ' ' + to.unit + '   ·   ' + mdist(m.at) };
+    case 'kick': return { title: 'FINAL KICK', sub: to.value + ' ' + to.unit + '   ·   LAST ' + mdist(m.len) };
+    case 'fastest': return { title: 'FASTEST SPLIT', sub: to.value + ' ' + to.unit + '   ·   SPLIT ' + m.n };
+    case 'climb': return { title: 'BIG CLIMB', sub: '+' + C.fmtElev(m.gain, S.units) + ' ' + C.elevUnit(S.units) + '   ·   ' + (m.grade * 100).toFixed(1) + '% GRADE' };
+    default: return { title: 'HALFWAY', sub: (m.t !== null && m.t !== undefined ? C.fmtDuration(m.t) + '   ·   ' : '') + mdist(m.at) };
+  }
+}
+
+/* when a banner is up, in seconds of video: from when the head reaches the moment until just after it leaves */
+function momentWindow(m) {
+  if (m.win && m.win.id === R.planId) return m.win;
+  const t0 = C.tauAtP(R.plan, m.p0) * S.duration, t1 = C.tauAtP(R.plan, m.p1) * S.duration;
+  m.win = { id: R.planId, t0, len: Math.min(4.2, Math.max(2.4, t1 - t0 + 1)) };
+  return m.win;
+}
+
+function drawMomentBanner(ctx, W, H, tx, a, len) {
+  const u = Math.min(W, H) / 1080, innerW = Math.min(W - 120 * u, 1500 * u), cx = W / 2;
+  const e = a < 0.3 ? 1 - Math.pow(1 - a / 0.3, 3) : 1, alpha = a > len - 0.45 ? Math.max(0, (len - a) / 0.45) : e;
+  if (alpha <= 0) return;
+  const y = H * 0.32 + (1 - e) * 22 * u;
+  ctx.save(); ctx.globalAlpha = alpha;
+  const g = ctx.createLinearGradient(0, y - 190 * u, 0, y + 150 * u); // a soft dark band so the words read over bright imagery
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, y - 190 * u, W, 340 * u);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 18 * u;
+  spacing(ctx, '0.04em'); fitFont(ctx, tx.title, 700, 128 * u, 56 * u, innerW);
+  ctx.fillStyle = '#fff'; ctx.fillText(tx.title, cx, y);
+  spacing(ctx, '0px'); ctx.shadowBlur = 0; ctx.fillStyle = accent2();
+  rr(ctx, cx - 56 * u, y + 28 * u, 112 * u, 6 * u, 3 * u); ctx.fill();
+  ctx.shadowBlur = 12 * u; ctx.fillStyle = 'rgba(255,255,255,0.95)'; spacing(ctx, '0.1em');
+  fitFont(ctx, tx.sub, 600, 44 * u, 22 * u, innerW); ctx.fillText(tx.sub, cx, y + 86 * u);
+  spacing(ctx, '0px'); ctx.restore();
+}
+
+function drawMoments(ctx, W, H) {
+  const race = R.plan && R.plan.race;
+  if (!race || !race.moments.length || !R.frame) return;
+  const now = S.tau * S.duration;
+  for (const m of race.moments) {
+    const w = momentWindow(m), a = now - w.t0;
+    if (a >= 0 && a <= w.len) drawMomentBanner(ctx, W, H, momentText(m), a, w.len);
+  }
 }
 
 /* markers and the HUD are drawn on their own layer so they can fade out under the card */
@@ -284,12 +352,12 @@ let hudLayer = null;
 function drawOverlays(W, H, card) {
   // the card and the HUD take turns: the card is gone before the HUD starts to appear (and the reverse at the end), so their titles never overlap
   const cardA = Math.min(1, Math.max(0, (card - 0.5) * 2)), hudA = Math.min(1, Math.max(0, (0.5 - card) * 2));
-  if (hudA >= 1) drawMarkers(vctx, W, H), drawHud(vctx, W, H), drawPhotos(vctx, W, H);
+  if (hudA >= 1) drawMarkers(vctx, W, H), drawHud(vctx, W, H), drawPhotos(vctx, W, H), drawMoments(vctx, W, H);
   else if (hudA > 0) {
     if (!hudLayer) hudLayer = document.createElement('canvas');
     if (hudLayer.width !== W || hudLayer.height !== H) { hudLayer.width = W; hudLayer.height = H; }
     const lc = hudLayer.getContext('2d'); lc.clearRect(0, 0, W, H);
-    drawMarkers(lc, W, H); drawHud(lc, W, H); drawPhotos(lc, W, H);
+    drawMarkers(lc, W, H); drawHud(lc, W, H); drawPhotos(lc, W, H); drawMoments(lc, W, H);
     vctx.save(); vctx.globalAlpha = hudA; vctx.drawImage(hudLayer, 0, 0); vctx.restore();
   }
   if (cardA > 0) drawCard(vctx, W, H, cardA);

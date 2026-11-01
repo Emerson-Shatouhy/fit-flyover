@@ -1,5 +1,6 @@
 import * as C from './core.js';
 import { S } from './state.js';
+import { parseClock } from './racecut.js';
 
 /* ------------------------------ overlay ------------------------------ */
 /* ------------------------------ sport and pace ------------------------------ */
@@ -42,5 +43,11 @@ export function statItems(head) {
   if (S.stats.gain && m.hasEle) it.push({ k: 'gain', label: 'Elev gain', value: C.fmtElev(head.gain, u), unit: C.elevUnit(u) });
   if (S.stats.hr && m.hasHr) it.push({ k: 'hr', label: 'Heart rate', value: String(Math.round(head.hr)), unit: 'bpm' });
   if (S.stats.power && m.hasPower) it.push({ k: 'pwr', label: 'Power', value: String(Math.round(head.pwr)), unit: 'W' });
+  // Race cut with a goal time: how far ahead of (or behind) an even-paced run to that time
+  const goal = S.mode === 'race' && m.hasTime && m.totalDist > 0 ? parseClock(S.goal) : null;
+  if (goal && head.t !== null) {
+    const gap = head.t - goal * (head.d / m.totalDist);
+    it.push({ k: 'goal', label: 'Vs ' + C.fmtDuration(goal), value: C.fmtDuration(Math.abs(gap)), unit: Math.abs(gap) < 1 ? 'even' : gap < 0 ? 'ahead' : 'behind' });
+  }
   return it;
 }

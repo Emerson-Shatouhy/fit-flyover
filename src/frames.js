@@ -5,13 +5,20 @@ import { composite } from './hud.js';
 import { colorAt, colorModel, updateSegSource } from './colour.js';
 import { updateTransport } from './playback.js';
 import { photoSlots } from './photos.js';
+import { markerInterval } from './markers.js';
+import { $ } from './util.js';
+import { MOMENT_TITLES, buildRace } from './racecut.js';
 
 /* ------------------------------ frames ------------------------------ */
 export function replan() {
   if (!S.track) { R.plan = null; return; }
   const { W, H } = dims();
-  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration, cards: S.cards, buildings: S.b3d && S.basemap !== 'sat' });
+  // Race cut: the moments and the time warp. Classic mode passes nothing and plans exactly as before.
+  const race = S.mode === 'race' ? buildRace(S.track, { iv: markerInterval(), intensity: S.edit / 100 }) : null;
+  R.plan = C.planCamera(S.track, { style: S.camera, width: W, height: H, pitch: S.pitch, zoomOffset: S.zoom, duration: S.duration, cards: S.cards, buildings: S.b3d && S.basemap !== 'sat', race });
   R.planId++;
+  const note = $('#raceNote');
+  if (note) note.textContent = !race ? '' : race.moments.length ? 'Slowing down for: ' + race.moments.map((m) => MOMENT_TITLES[m.kind].toLowerCase()).join(', ') + '.' : 'No standout moments in this one, so it plays at an even speed.';
 }
 
 export function applyFrame(tau) {

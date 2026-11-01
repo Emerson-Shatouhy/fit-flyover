@@ -481,9 +481,10 @@ const norm360 = (a) => ((a % 360) + 360) % 360;
 const angleLerp = (a, b, t) => { const d = ((b - a + 540) % 360) - 180; return a + d * t; };
 
 /* trapezoid velocity profile so the head eases in and out */
-function easeProgress(u) {
+function easeProgress(u, r) {
   u = clamp(u, 0, 1);
-  const r = 0.06, v = 1 / (1 - r);
+  r = r || 0.06;
+  const v = 1 / (1 - r);
   if (u < r) return (v * u * u) / (2 * r);
   if (u > 1 - r) return 1 - (v * (1 - u) * (1 - u)) / (2 * r);
   return v * (u - r / 2);
@@ -495,11 +496,22 @@ const TIMELINE = {
   orbit: { p0: 0.04, p1: 0.96, intro: 0, outro: 1 },
 };
 
-/* hold = share of the video (each end) spent sitting on the title card. The head only starts after it and is home before it returns. */
-function progressAt(style, tau, hold) {
-  const T = TIMELINE[style] || TIMELINE.chase, g = hold ? hold + CARD_FADE : 0; // run only between the card clearing and the card returning
+/* Race cut: the head arrives a little earlier, so the camera pulls back only once the finish has been seen up close */
+const RACE_TIMELINE = {
+  chase: { p0: 0.10, p1: 0.86, intro: 0.17, outro: 0.86 },
+  overhead: { p0: 0.10, p1: 0.86, intro: 0.17, outro: 0.86 },
+  orbit: TIMELINE.orbit,
+};
+
+const timelineFor = (style, race) => (race && RACE_TIMELINE[style]) || TIMELINE[style] || TIMELINE.chase;
+
+/* hold = share of the video (each end) spent sitting on the title card. The head only starts after it and is home before it returns.
+   race (optional) = { warp }: the Race cut's time warp. Without it this is the classic constant-speed flyover. */
+function progressAt(style, tau, hold, race) {
+  const T = timelineFor(style, race), g = hold ? hold + CARD_FADE : 0; // run only between the card clearing and the card returning
   const p0 = Math.max(T.p0, g), p1 = Math.min(T.p1, 1 - g);
-  return easeProgress((tau - p0) / (p1 - p0));
+  const u = easeProgress((tau - p0) / (p1 - p0), race ? 0.04 : 0.06);
+  return race ? race.warp.pAt(u) : u;
 }
 
 /* The intro and finish card. It is fully up on the first and last frame, which are the same picture (the whole route, title over it),
@@ -580,7 +592,7 @@ function buildHeading(track, windowMeters) {
 function planCamera(track, o) {
   const style = o.style || 'chase', W = o.width, H = o.height, short = Math.min(W, H);
   const pitch = o.pitch, zoomOffset = o.zoomOffset || 0, duration = o.duration || 30;
-  const T = TIMELINE[style] || TIMELINE.chase;
+  const T = timelineFor(style, o.race);
   const cosLat = Math.cos(track.lat0 * RAD);
   const v = track.L / (duration * (T.p1 - T.p0));
   const visibleM = Math.max(1100, 4.5 * v);
@@ -592,7 +604,7 @@ function planCamera(track, o) {
   const whole = frameWholeRoute(track, W, H, ovPitch);
   const hold = o.cards ? Math.min(0.09, 1.5 / duration) : 0; // about 1.5 s on the card at each end
   return {
-    style, track, W, H, pitch, zoomOffset, followZoom, hold,
+    style, track, W, H, pitch, zoomOffset, followZoom, hold, race: o.race || null,
     heading: buildHeading(track, clamp(visibleActual * 0.7, 300, 10000)),
     overview: { center: whole.center, zoom: whole.zoom, bearing: whole.bearing, pitch: ovPitch },
     padTop: style === 'chase' ? 0.24 * H : style === 'overhead' ? 0.08 * H : 0,
@@ -600,8 +612,8 @@ function planCamera(track, o) {
 }
 
 function cameraAt(plan, tau) {
-  const { style, track } = plan, T = TIMELINE[style] || TIMELINE.chase, h = plan.hold || 0;
-  const p = progressAt(style, tau, h);
+  const { style, track } = plan, T = timelineFor(style, plan.race), h = plan.hold || 0;
+  const p = progressAt(style, tau, h, plan.race);
   const ov = plan.overview, card = cardAmount(plan, tau), line = lineProgress(plan, tau, p);
   if (style === 'orbit') {
     // a full turn, so the last frame lines up with the first and the loop is seamless
@@ -609,7 +621,7 @@ function cameraAt(plan, tau) {
   }
   const head = sampleTrack(track, p);
   const follow = {
-    center: [head.lng, head.lat], zoom: plan.followZoom, pitch: plan.pitch,
+    center: [head.lng, head.lat], zoom: plan.followZoom + (plan.race ? plan.race.warp.zoomAt(p) : 0), pitch: plan.pitch,
     bearing: style === 'overhead' ? 0 : plan.heading(p),
   };
   let w = 0; // 1 = overview, 0 = follow
@@ -626,6 +638,13 @@ function cameraAt(plan, tau) {
     padTop: lerp(plan.padTop, 0, w),
     p, card, line,
   };
+}
+
+/* the moment (0..1 of the video) the head first reaches progress p */
+function tauAtP(plan, p) {
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (cameraAt(plan, mid).p >= p) hi = mid; else lo = mid; }
+  return hi;
 }
 
 /* suggested video length for a given route length */
@@ -683,5 +702,5 @@ function makeSample() {
 }
 
 export {
-  parseFit, parseGpx, parseTcx, readActivityFile, buildTrack, sampleTrack, lineUpTo, planCamera, cameraAt, progressAt, frameWholeRoute, buildHeading, suggestDuration, makeSample, fmtDistance, distUnit, fmtDuration, fmtPace, paceUnit, fmtSpeed, speedUnit, fmtElev, elevUnit, haversine, clamp, lerp, smoother, norm360,
+  parseFit, parseGpx, parseTcx, readActivityFile, buildTrack, sampleTrack, lineUpTo, planCamera, cameraAt, progressAt, tauAtP, frameWholeRoute, buildHeading, suggestDuration, makeSample, fmtDistance, distUnit, fmtDuration, fmtPace, paceUnit, fmtSpeed, speedUnit, fmtElev, elevUnit, haversine, clamp, lerp, smoother, norm360,
 };

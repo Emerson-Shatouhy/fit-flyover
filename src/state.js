@@ -6,6 +6,7 @@ export const S = {
   basemap: 'sat', labels: 'off', b3d: false, color: '#FF5A1F', color2: '', camera: 'chase', aspect: '9:16', res: 720, duration: 30, pitch: 62, zoom: 0,
   terrain: 1.5, trimStart: 0, trimEnd: 0, colorBy: 'solid', sport: 'auto', markerEvery: 'auto', markers: true, callouts: true, legend: true, fps: 30, units: 'mi', title: '', subtitle: '', graph: 'ele', safe: true, credit: true, loop: true, cards: true, weather: false, temp: 'auto',
   stats: { dist: true, time: true, pace: true, gain: true, hr: true, power: false },
+  mode: 'classic', edit: 80, goal: '', official: '', pr: false,
 };
 
 try {

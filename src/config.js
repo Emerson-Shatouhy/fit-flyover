@@ -32,7 +32,8 @@ export const SEGS = {
   colorBy: [['solid', 'Solid'], ['hr', 'HR'], ['pwr', 'Power'], ['spd', 'Speed'], ['ele', 'Elev']],
   temp: [['auto', 'Auto'], ['F', '°F'], ['C', '°C']],
   labels: [['off', 'Off'], ['major', 'Major'], ['full', 'Full']],
-  graph: [['none', 'Off'], ['ele', 'Elev'], ['hr', 'HR'], ['pwr', 'Power']],
+  graph: [['none', 'Off'], ['ele', 'Elev'], ['spd', 'Pace'], ['hr', 'HR'], ['pwr', 'Power']],
+  mode: [['classic', 'Classic'], ['race', 'Race cut']],
 };
 
 export const MI_M = 1609.344;
@@ -57,4 +58,4 @@ export function markerForUnits(val, units) {
 
 export const STORE_KEY ='route-flyover-settings-v1';
 
-export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'color2', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'temp', 'stats'];
+export const SAVED_KEYS = ['basemap', 'labels', 'b3d', 'color', 'color2', 'camera', 'aspect', 'res', 'pitch', 'zoom', 'terrain', 'fps', 'units', 'sport', 'markerEvery', 'graph', 'colorBy', 'markers', 'callouts', 'legend', 'safe', 'credit', 'loop', 'cards', 'weather', 'temp', 'stats', 'mode', 'edit', 'goal', 'official', 'pr'];
