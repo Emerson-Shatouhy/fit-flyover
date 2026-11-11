@@ -19,6 +19,10 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--f-ui); display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
+/* Workout mode (an indoor session) has no map, so the map-only controls go and the workout ones show */
+.workout [data-map-only] { display: none !important; }
+[data-workout-only] { display: none; }
+.workout [data-workout-only] { display: grid; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .top { flex: none; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--line); }

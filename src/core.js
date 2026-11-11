@@ -42,6 +42,7 @@ function parseFit(buf) {
   const end = Math.min(hdr + dv.getUint32(4, true), buf.byteLength);
   const defs = {};
   const points = [];
+  const series = []; // every record with heart rate or power, GPS or not: an indoor trainer file has no coordinates
   let sport = null;
   let lastTs = 0;
   let pos = hdr;
@@ -100,7 +101,9 @@ function parseFit(buf) {
         if (sport === null && rec[5] !== undefined) sport = FIT_SPORTS[rec[5]] || 'other';
         continue;
       }
-      if (!wantRec || rec[0] === undefined || rec[1] === undefined) continue;
+      if (!wantRec) continue;
+      if (rec[3] !== undefined || rec[7] !== undefined) series.push({ t: rec[253] !== undefined ? (rec[253] + FIT_EPOCH) * 1000 : null, hr: rec[3] !== undefined ? rec[3] : null, pwr: rec[7] !== undefined ? rec[7] : null });
+      if (rec[0] === undefined || rec[1] === undefined) continue;
       const alt = rec[78] !== undefined ? rec[78] : rec[2];
       const spd = rec[73] !== undefined ? rec[73] : rec[6];
       points.push({
@@ -117,7 +120,7 @@ function parseFit(buf) {
   } catch (e) {
     if (!points.length) throw e; // keep what we decoded from a truncated file
   }
-  return { points, sport, name: null };
+  return { points, sport, name: null, series: points.length < 2 ? series : null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,7 +170,9 @@ function parseGpx(text) {
   const trk = /<trk\b[^>]*>([\s\S]*?)(?:<trkseg|<trkpt)/i.exec(text);
   const name = (trk && tagText(trk[1], 'name')) || tagText((/<metadata\b[\s\S]*?<\/metadata>/i.exec(text) || [''])[0], 'name');
   const type = trk && tagText(trk[1], 'type');
-  return { points, sport: sportFromText(type), name: name || null };
+  // Zwift and other trainer apps write made-up coordinates; Strava marks those rides VirtualRide
+  const indoor = /virtual|indoor|trainer/i.test(type || '') || /zwift/i.test(name || '');
+  return { points, sport: sportFromText(type), name: name || null, indoor };
 }
 
 function parseTcx(text) {
