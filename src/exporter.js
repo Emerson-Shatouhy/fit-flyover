@@ -27,7 +27,7 @@ async function waitVisible() {
 }
 
 export async function exportVideo() {
-  if (!S.track || S.exporting) return;
+  if ((!S.track && !S.workout) || S.exporting) return;
   exitTrimView(false);
   S.exporting = true; R.exportCancel = false; setPlaying(false);
   document.body.classList.add('exporting');
@@ -37,7 +37,7 @@ export async function exportVideo() {
   try {
     await fontsReady();
     try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { /* optional */ }
-    const base = slug(S.title || S.track.meta.name) + '-flyover';
+    const base = slug(S.title || (S.track ? S.track.meta.name : S.workout.name)) + (S.workout ? '-workout' : '-flyover');
     result = window.VideoEncoder && window.VideoFrame ? await exportWebCodecs(base) : 'unsupported';
     if (result === 'unsupported') result = await exportRealtime(base);
   } catch (e) { console.error(e); setStatus('Export failed: ' + (e.message || e), 'error'); }

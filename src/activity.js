@@ -10,6 +10,7 @@ import { loadWeather } from './weather.js';
 import { renderPhotos, resetPhotos } from './photoui.js';
 import { SPORT_NAME, paceOrSpeed } from './sport.js';
 import { suggestRaceDuration } from './racecut.js';
+import { buildWorkout, describeSets, isIndoor, suggestWorkoutDuration } from './workout.js';
 
 /* ------------------------------ loading ------------------------------ */
 export function setStatus(msg, kind) {
@@ -29,6 +30,10 @@ export async function loadFile(file) {
     const buf = await file.arrayBuffer(); lap('file read');
     setStatus('Decoding ' + file.name + '…'); await paint();
     const parsed = await C.readActivityFile(buf, file.name); lap('decoded ' + (parsed.points ? parsed.points.length : '?') + ' points');
+    if (isIndoor(parsed)) { // a trainer ride: made-up or no coordinates, so the picture is the power profile instead of a map
+      const wk = buildWorkout(parsed);
+      if (wk) { lap('workout built'); await setWorkout(wk); setStatus(''); return; }
+    }
     setStatus('Building the route…'); await paint();
     const track = C.buildTrack(adoptRaw(parsed)); lap('route built');
     if (R.mapFailed) throw new Error(R.mapFailed);
@@ -45,6 +50,7 @@ export async function loadFile(file) {
 
 export async function setTrack(track, opts) {
   opts = opts || {};
+  S.workout = null; R.wframe = null;
   await mapReady;
   S.track = track; R.trackId++;
   if (!opts.retrim) { R.fullTrack = track; S.trimView = false; }
@@ -73,7 +79,33 @@ export async function setTrack(track, opts) {
   renderPhotos(); // statuses depend on the new route and camera plan
 }
 
+/* Workout mode: an indoor interval session. There is no route, so S.track stays empty and S.workout drives the frames. */
+export async function setWorkout(wk) {
+  S.workout = wk; S.track = null; R.trackId++; R.fullTrack = null; R.raw = null; R.plan = null; R.frame = null; S.trimView = false;
+  S.duration = suggestWorkoutDuration(wk); S.title = wk.name || ''; $('#title').value = S.title; S.subtitle = ''; $('#subtitle').value = '';
+  $('#drop').hidden = true; view.hidden = false;
+  for (const id of ['playBtn', 'scrub', 'exportBtn']) $('#' + id).disabled = false;
+  $('#replaceBtn').hidden = false;
+  $('[data-stat="time"]').disabled = false; $('[data-stat="hr"]').disabled = !wk.hasHr; $('[data-stat="power"]').disabled = false;
+  resetPhotos();
+  syncControls();
+  updateActivityPanel();
+  fitView(); replan(); applyFrame(0); setPlaying(true);
+}
+
+function updateWorkoutPanel() {
+  const w = S.workout, cell = (label, val, unit) => '<div><span>' + label + '</span><b>' + val + (unit ? '<small>' + unit + '</small>' : '') + '</b></div>';
+  $('#kv').innerHTML = cell('Time', C.fmtDuration(w.T), '') + cell('Avg power', Math.round(w.avgPwr), 'W') +
+    cell('Efforts', w.efforts.length || '–', '') + (w.hasHr ? cell('Max HR', Math.round(w.maxHr), 'bpm') : cell('Max power', Math.round(w.maxPwr), 'W'));
+  $('#kv').hidden = false; $('#noActivity').hidden = true;
+  $('#activityNote').textContent = 'Indoor workout · ' + (w.sets.length ? w.sets.length + (w.sets.length === 1 ? ' set: ' : ' sets: ') + describeSets(w).join(' · ') : 'no intervals found, so it plays as a power profile') + (w.hasHr ? '' : ' · no heart rate');
+  $('#activityNote').hidden = false;
+  const d = w.startTime ? new Date(w.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  $('#topMeta').textContent = (w.name || 'Workout') + (d ? ' · ' + d : '');
+}
+
 export function updateActivityPanel() {
+  if (S.workout) { updateWorkoutPanel(); return; }
   const t = S.track; if (!t) return;
   const m = t.meta, u = S.units;
   const cell = (label, val, unit) => '<div><span>' + label + '</span><b>' + val + (unit ? '<small>' + unit + '</small>' : '') + '</b></div>';

@@ -9,7 +9,7 @@ let lastTs = 0, holdUntil = 0;
 export function tick(ts) {
   requestAnimationFrame(tick);
   const dt = Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)); lastTs = ts;
-  if (!S.playing || S.exporting || !S.track || R.dragging) return;
+  if (!S.playing || S.exporting || (!S.track && !S.workout) || R.dragging) return;
   if (S.tau >= 1) {
     if (!S.loop) { setPlaying(false); return; }
     // with the card on, the last frame already is the first frame and the card is the pause, so loop straight away
@@ -21,7 +21,7 @@ export function tick(ts) {
 }
 
 export function setPlaying(on) {
-  S.playing = !!on && !!S.track;
+  S.playing = !!on && !!(S.track || S.workout);
   $('#icoPlay').hidden = S.playing; $('#icoPause').hidden = !S.playing;
   $('#playBtn').setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
   if (S.playing && S.tau >= 1 && !S.loop) applyFrame(0);

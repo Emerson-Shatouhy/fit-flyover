@@ -8,9 +8,11 @@ import { photoSlots } from './photos.js';
 import { markerInterval } from './markers.js';
 import { $ } from './util.js';
 import { MOMENT_TITLES, buildRace } from './racecut.js';
+import { buildWorkoutWarp, workoutFrame } from './workout.js';
 
 /* ------------------------------ frames ------------------------------ */
 export function replan() {
+  if (S.workout) { S.workout.warp = buildWorkoutWarp(S.workout, S.edit / 100); R.plan = null; R.planId++; return; }
   if (!S.track) { R.plan = null; return; }
   const { W, H } = dims();
   // Race cut: the moments and the time warp. Classic mode passes nothing and plans exactly as before.
@@ -23,6 +25,7 @@ export function replan() {
 
 export function applyFrame(tau) {
   S.tau = Math.min(1, Math.max(0, tau));
+  if (S.workout) { R.wframe = workoutFrame(S.workout, S.tau, { cards: S.cards, duration: S.duration }); composite(); updateTransport(); return; }
   if (S.trimView && S.track && R.map) { applyTrimView(); return; }
   if (!S.track || !R.plan || !R.map) { composite(); return; }
   const cam = C.cameraAt(R.plan, S.tau);
@@ -55,6 +58,7 @@ export const refresh = () => applyFrame(S.tau);
 
 /* waits until the map has drawn a frame with every tile in place */
 export function settle(timeout) {
+  if (S.workout) return Promise.resolve(); // nothing to wait for: no map tiles
   return new Promise((resolve) => {
     let done = false;
     const fin = () => { if (done) return; done = true; clearTimeout(to); R.map.off('render', chk); resolve(); };

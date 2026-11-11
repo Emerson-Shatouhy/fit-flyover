@@ -19,6 +19,8 @@ S.trimView = false;
 
  S.track = null;
 
+ S.workout = null; // an indoor interval session (Workout mode); S.track stays null while it is set
+
  S.tau = 0;
 
  S.playing = false;
@@ -36,7 +38,7 @@ export let resolveMap = null;
 export const mapReady = new Promise((r) => { resolveMap = r; });
 
 /* mutable runtime references shared between modules */
-export const R = { map: null, plan: null, frame: null, trackId: 0, planId: 0, exportCancel: false, dragging: false, raw: null, fullTrack: null, mapFailed: null, weather: null };
+export const R = { map: null, plan: null, frame: null, trackId: 0, planId: 0, exportCancel: false, dragging: false, raw: null, fullTrack: null, mapFailed: null, weather: null, wframe: null };
 
 export const dims = () => {
   const [a, b] = ASPECTS[S.aspect], r = S.res, ev = (x) => Math.round(x / 2) * 2;

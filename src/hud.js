@@ -9,6 +9,7 @@ import { calloutList, drawCallout, drawMarkers, markerTau } from './markers.js';
 import { drawTrimOverlay } from './trim.js';
 import { weatherLine } from './weather.js';
 import { drawPhotos } from './photocard.js';
+import { drawWorkout } from './workoutview.js';
 
 const basemapCredit = () => { const b = BASEMAPS[S.basemap]; return b.vector && !R.vecFail ? b.vcredit : b.credit; };
 
@@ -365,6 +366,11 @@ function drawOverlays(W, H, card) {
 
 export function composite() {
   const W = view.width, H = view.height;
+  if (S.workout) { // no map: the picture is the power profile
+    if (R.wframe) drawWorkout(vctx, W, H, S.workout, R.wframe, { color: S.color, color2: S.color2, title: S.title, subtitle: S.subtitle, stats: S.stats, safe: S.safe });
+    $('#tilesNote').hidden = true;
+    return;
+  }
   vctx.fillStyle = '#0a0d10'; vctx.fillRect(0, 0, W, H);
   if (R.map) { const mc = R.map.getCanvas(); if (mc && mc.width > 0 && mc.height > 0) vctx.drawImage(mc, 0, 0, W, H); }
   if (S.trimView && S.track) drawTrimOverlay(vctx, W, H);

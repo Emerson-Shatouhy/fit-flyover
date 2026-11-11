@@ -8,10 +8,11 @@ import { loadWeather } from './weather.js';
 import { bindPhotos } from './photoui.js';
 import { applyBasemap, applyLineStyle, applyRouteColor, styleUp } from './map.js';
 import { R, S, dims, host, save, view } from './state.js';
-import { loadFile, setStatus, setTrack, updateActivityPanel } from './activity.js';
+import { loadFile, setStatus, setTrack, setWorkout, updateActivityPanel } from './activity.js';
 import { setPlaying } from './playback.js';
 import { exportVideo } from './exporter.js';
 import { suggestRaceDuration } from './racecut.js';
+import { makeSampleWorkout, buildWorkout, suggestWorkoutDuration } from './workout.js';
 
 function setAccent(hex) {
   const [r, g, b] = hexToRgb(hex), root = document.documentElement.style;
@@ -35,6 +36,7 @@ export function buildControls() {
 
   bindRange('duration', 'duration', (v) => v + ' s', () => { replan(); refresh(); updateAutoLen(); });
   bindRange('edit', 'edit', (v) => v + '%', () => { replan(); refresh(); });
+  bindRange('wedit', 'edit', (v) => v + '%', () => { replan(); refresh(); });
   bindRange('pitch', 'pitch', (v) => v + '°', () => { replan(); refresh(); });
   bindRange('zoom', 'zoom', (v) => (v > 0 ? '+' : '') + v.toFixed(1), () => { replan(); refresh(); });
   bindRange('terrain', 'terrain', (v) => v.toFixed(1) + '×', () => { if (styleUp()) R.map.setTerrain({ source: 'dem', exaggeration: S.terrain }); refresh(); });
@@ -134,17 +136,19 @@ function bindRange(id, key, fmt, onInput) {
 }
 
 /* the length that suits this route in the current mode: a race cut is shorter and punchier than a classic flyover */
-const suggestLen = () => (S.mode === 'race' ? suggestRaceDuration(S.track.L) : C.suggestDuration(S.track.L));
+const suggestLen = () => (S.workout ? suggestWorkoutDuration(S.workout) : S.mode === 'race' ? suggestRaceDuration(S.track.L) : C.suggestDuration(S.track.L));
 
 function updateAutoLen() {
   const b = $('#autoLen');
-  if (!S.track) { b.hidden = true; return; }
+  if (!S.track && !S.workout) { b.hidden = true; return; }
   const s = suggestLen();
   b.hidden = s === S.duration; b.textContent = 'use ' + s + ' s';
 }
 
 export function syncControls() {
-  for (const id of ['duration', 'edit', 'pitch', 'zoom', 'terrain']) $('#' + id)._sync();
+  document.body.classList.toggle('workout', !!S.workout); // hides the map-only controls and shows the workout ones
+  $('#routeColLab').textContent = S.workout ? 'Effort colour' : 'Route colour';
+  for (const id of ['duration', 'edit', 'wedit', 'pitch', 'zoom', 'terrain']) $('#' + id)._sync();
   $('#raceFields').hidden = S.mode !== 'race';
   $$('[data-seg]').forEach((el) => $$('button', el).forEach((b) => b.setAttribute('aria-checked', String(S[el.dataset.seg] === b.dataset.val))));
   syncSwatches('#swatches', 'customColor', S.color);
@@ -200,6 +204,9 @@ export function bindEvents() {
   $('#pickBtn').addEventListener('click', () => input.click());
   $('#replaceBtn').addEventListener('click', () => input.click());
   input.addEventListener('change', () => { if (input.files[0]) loadFile(input.files[0]); input.value = ''; });
+  $('#sampleWorkoutBtn').addEventListener('click', async () => {
+    try { await setWorkout(buildWorkout(makeSampleWorkout())); setStatus(''); } catch (e) { setStatus(e.message, 'error'); }
+  });
   $('#sampleBtn').addEventListener('click', async () => {
     try { await setTrack(C.buildTrack(adoptRaw(C.makeSample()))); setStatus(''); } catch (e) { setStatus(e.message, 'error'); }
   });

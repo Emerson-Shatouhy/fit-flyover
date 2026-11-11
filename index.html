@@ -27,10 +27,11 @@
       <canvas id="view" width="720" height="1280" hidden></canvas>
       <div class="drop" id="drop">
         <h1>Drop your ride or run here</h1>
-        <p>A .fit, .gpx or .tcx file from your watch, bike computer or Strava export. Zipped .gz files work too.</p>
+        <p>A .fit, .gpx or .tcx file from your watch, bike computer or Strava export. Zipped .gz files work too. An indoor trainer ride (Zwift, say) becomes a workout video of its power and intervals.</p>
         <div class="row">
           <button class="btn primary" id="pickBtn" type="button">Choose file</button>
           <button class="btn" id="sampleBtn" type="button">Try a sample loop</button>
+          <button class="btn" id="sampleWorkoutBtn" type="button">Try a sample workout</button>
         </div>
         <p class="status" id="dropStatus" role="status" aria-live="polite"></p>
         <small>Your file is read in this tab and never uploaded. The map itself loads tiles from Esri, OpenFreeMap and AWS, so the area you view is visible to them. If you turn on Weather, the start point and date are sent to Open-Meteo.</small>
@@ -61,7 +62,7 @@
         <p class="note" id="noActivity">Nothing loaded yet.</p>
         <div class="kv" id="kv" hidden></div>
         <p class="note" id="activityNote" hidden></p>
-        <div class="trim" id="trimBox" hidden>
+        <div class="trim" id="trimBox" data-map-only hidden>
           <h2>Trim</h2>
           <p class="note" id="trimNote"></p>
           <div class="btnrow">
@@ -73,8 +74,14 @@
       </section>
 
       <section class="pane" id="paneStyle" role="tabpanel" aria-labelledby="tabStyle" hidden>
-        <div class="field"><div class="lab">Mode</div><div class="seg" data-seg="mode" role="radiogroup" aria-label="Mode"></div></div>
-        <div class="field" id="raceFields" hidden>
+        <div class="field" data-map-only><div class="lab">Mode</div><div class="seg" data-seg="mode" role="radiogroup" aria-label="Mode"></div></div>
+        <div class="field" id="workoutFields" data-workout-only>
+          <p class="note">Indoor ride, so there is no map. The video is the power profile: each hard effort and set is picked out of the file, the rests are skimmed and the efforts play at full tilt.</p>
+          <div class="lab" style="margin-top:12px"><label for="wedit">Edit intensity</label><output id="weditOut">80%</output></div>
+          <input type="range" id="wedit" min="0" max="100" step="5">
+          <p class="note" style="margin-top:6px">0% plays the whole session at an even speed. The Length slider below sets the final video length.</p>
+        </div>
+        <div class="field" id="raceFields" data-map-only hidden>
           <p class="note">Race cut skims the steady stretches and slows down for the shift, the finish and the big moments. Best at 15 to 45 s.</p>
           <p class="note" id="raceNote" style="margin-top:6px"></p>
           <div class="lab" style="margin-top:12px"><label for="edit">Edit intensity</label><output id="editOut">80%</output></div>
@@ -87,15 +94,15 @@
           </div>
           <div class="chips" style="margin-top:8px"><label class="chip"><input type="checkbox" id="prChk"><span>PR badge on the card</span></label></div>
         </div>
-        <div class="field"><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
-        <div class="field" id="vecFields" hidden>
+        <div class="field" data-map-only><div class="lab">Map</div><div class="seg" data-seg="basemap" role="radiogroup" aria-label="Map style"></div></div>
+        <div class="field" id="vecFields" data-map-only hidden>
           <div class="lab">Labels</div><div class="seg" data-seg="labels" role="radiogroup" aria-label="Map labels"></div>
           <div class="chips" style="margin-top:8px"><label class="chip"><input type="checkbox" id="b3dChk"><span>3D buildings</span></label></div>
         </div>
-        <div class="field"><div class="lab">Route colour</div><div class="swatches" id="swatches" role="radiogroup" aria-label="Route colour"></div></div>
+        <div class="field"><div class="lab"><span id="routeColLab">Route colour</span></div><div class="swatches" id="swatches" role="radiogroup" aria-label="Route colour"></div></div>
         <div class="field"><div class="lab">Date &amp; accent colour</div><div class="swatches" id="swatches2" role="radiogroup" aria-label="Date and accent colour"></div></div>
-        <div class="field"><div class="lab">Colour route by</div><div class="seg" data-seg="colorBy" role="radiogroup" aria-label="Colour route by"></div></div>
-        <div class="field"><div class="lab">Camera</div><div class="seg" data-seg="camera" role="radiogroup" aria-label="Camera style"></div></div>
+        <div class="field" data-map-only><div class="lab">Colour route by</div><div class="seg" data-seg="colorBy" role="radiogroup" aria-label="Colour route by"></div></div>
+        <div class="field" data-map-only><div class="lab">Camera</div><div class="seg" data-seg="camera" role="radiogroup" aria-label="Camera style"></div></div>
         <div class="grid2">
           <div class="field"><div class="lab"><label for="aspect">Format</label></div>
             <select id="aspect"><option value="9:16">9:16 Reels</option><option value="4:5">4:5 Feed</option><option value="1:1">1:1 Square</option><option value="16:9">16:9 Wide</option></select></div>
@@ -106,9 +113,9 @@
         <details class="adv">
           <summary>Advanced</summary>
           <div class="adv-body">
-            <div class="field"><div class="lab"><label for="pitch">Tilt</label><output id="pitchOut">66°</output></div><input type="range" id="pitch" min="0" max="80" step="1"></div>
-            <div class="field"><div class="lab"><label for="zoom">Zoom</label><output id="zoomOut">0</output></div><input type="range" id="zoom" min="-2" max="2" step="0.1"></div>
-            <div class="field"><div class="lab"><label for="terrain">Terrain height</label><output id="terrainOut">1.5×</output></div><input type="range" id="terrain" min="0.5" max="4" step="0.1"></div>
+            <div class="field" data-map-only><div class="lab"><label for="pitch">Tilt</label><output id="pitchOut">66°</output></div><input type="range" id="pitch" min="0" max="80" step="1"></div>
+            <div class="field" data-map-only><div class="lab"><label for="zoom">Zoom</label><output id="zoomOut">0</output></div><input type="range" id="zoom" min="-2" max="2" step="0.1"></div>
+            <div class="field" data-map-only><div class="lab"><label for="terrain">Terrain height</label><output id="terrainOut">1.5×</output></div><input type="range" id="terrain" min="0.5" max="4" step="0.1"></div>
             <div class="field"><div class="lab"><label for="fps">Frame rate</label></div>
               <select id="fps"><option value="24">24 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select></div>
             <label class="chk"><input type="checkbox" id="safeChk"><span>Keep text inside the Reels safe zone (9:16)</span></label>
@@ -119,37 +126,37 @@
       <section class="pane" id="paneOverlay" role="tabpanel" aria-labelledby="tabOverlay" hidden>
         <div class="field"><div class="lab"><label for="title">Title</label></div><input type="text" id="title" maxlength="60" placeholder="Morning run" autocomplete="off"></div>
         <div class="field"><div class="lab"><label for="subtitle">Subtitle</label></div><input type="text" id="subtitle" maxlength="80" placeholder="A line under the title" autocomplete="off"></div>
-        <div class="field"><div class="lab"><label for="sport">Sport</label></div><select id="sport"></select></div>
+        <div class="field" data-map-only><div class="lab"><label for="sport">Sport</label></div><select id="sport"></select></div>
         <div class="field"><div class="lab">Stats</div>
           <div class="chips">
-            <label class="chip"><input type="checkbox" data-stat="dist"><span>Distance</span></label>
+            <label class="chip" data-map-only><input type="checkbox" data-stat="dist"><span>Distance</span></label>
             <label class="chip"><input type="checkbox" data-stat="time"><span>Time</span></label>
-            <label class="chip"><input type="checkbox" data-stat="pace"><span>Pace / speed</span></label>
-            <label class="chip"><input type="checkbox" data-stat="gain"><span>Elev gain</span></label>
+            <label class="chip" data-map-only><input type="checkbox" data-stat="pace"><span>Pace / speed</span></label>
+            <label class="chip" data-map-only><input type="checkbox" data-stat="gain"><span>Elev gain</span></label>
             <label class="chip"><input type="checkbox" data-stat="hr"><span>Heart rate</span></label>
             <label class="chip"><input type="checkbox" data-stat="power"><span>Power</span></label>
           </div></div>
-        <div class="field"><div class="lab">Graph</div><div class="seg" data-seg="graph" role="radiogroup" aria-label="Graph"></div></div>
+        <div class="field" data-map-only><div class="lab">Graph</div><div class="seg" data-seg="graph" role="radiogroup" aria-label="Graph"></div></div>
         <div class="field"><div class="lab">Extras</div>
           <div class="chips">
             <label class="chip"><input type="checkbox" id="cardsChk"><span>Intro / finish card</span></label>
-            <label class="chip"><input type="checkbox" id="weatherChk"><span>Weather</span></label>
-            <label class="chip"><input type="checkbox" id="markersChk"><span>Distance markers</span></label>
-            <label class="chip"><input type="checkbox" id="calloutsChk"><span>Split callouts</span></label>
-            <label class="chip"><input type="checkbox" id="legendChk"><span>Colour legend</span></label>
+            <label class="chip" data-map-only><input type="checkbox" id="weatherChk"><span>Weather</span></label>
+            <label class="chip" data-map-only><input type="checkbox" id="markersChk"><span>Distance markers</span></label>
+            <label class="chip" data-map-only><input type="checkbox" id="calloutsChk"><span>Split callouts</span></label>
+            <label class="chip" data-map-only><input type="checkbox" id="legendChk"><span>Colour legend</span></label>
           </div></div>
-        <div class="field"><div class="lab">Photos <span class="count" id="photoCount"></span></div>
+        <div class="field" data-map-only><div class="lab">Photos <span class="count" id="photoCount"></span></div>
           <p class="note">Photos with a location or time pop up where they were taken.</p>
           <div class="btnrow"><button class="btn" id="photoAddBtn" type="button" disabled>Add photos</button></div>
           <p class="note warn" id="photoNote" hidden></p>
           <ul class="photolist" id="photoList"></ul>
         </div>
-        <div class="field"><div class="lab">Temperature</div><div class="seg" data-seg="temp" role="radiogroup" aria-label="Temperature unit"></div></div>
+        <div class="field" data-map-only><div class="lab">Temperature</div><div class="seg" data-seg="temp" role="radiogroup" aria-label="Temperature unit"></div></div>
         <details class="adv">
           <summary>Advanced</summary>
           <div class="adv-body">
-            <div class="field"><div class="lab"><label for="markerEvery">Marker every</label></div><select id="markerEvery"></select></div>
-            <label class="chk"><input type="checkbox" id="creditChk"><span>Map credit</span></label>
+            <div class="field" data-map-only><div class="lab"><label for="markerEvery">Marker every</label></div><select id="markerEvery"></select></div>
+            <label class="chk" data-map-only><input type="checkbox" id="creditChk"><span>Map credit</span></label>
           </div>
         </details>
       </section>
